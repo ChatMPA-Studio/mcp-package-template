@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "provenance.schema.json",
+  "title": "Data Provenance Metadata",
+  "description": "Tracks data lineage: source systems, extraction methods, processing steps, and quality metrics.",
+  "type": "object",
+  "properties": {
+    "source_systems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string", "description": "e.g. MySQL, PostgreSQL, API, CSV" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "properties": {
+        "method": { "type": "string", "description": "e.g. 'Direct database connection', 'REST API', 'File import'" },
+        "frequency": { "type": "string", "description": "e.g. 'real-time', 'daily', 'monthly'" },
+        "last_updated": { "type": "string", "format": "date" }
+      }
+    },
+    "processing": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ordered list of processing / transformation steps."
+        },
+        "methodology": {
+          "type": "string",
+          "description": "Reference to methodology documentation."
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of expected data present (0.0 - 1.0)."
+        },
+        "accuracy": { "type": "string" },
+        "consistency": { "type": "string" }
+      }
+    }
+  }
+}

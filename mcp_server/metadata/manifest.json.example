@@ -1,0 +1,68 @@
+{
+  "package": {
+    "name": "my-data-mcp",
+    "version": "1.0.0",
+    "description": "MCP server for my dataset",
+    "maintainer": {
+      "name": "Your Name",
+      "email": "you@example.com",
+      "organization": "Your Org"
+    },
+    "license": "MIT",
+    "runtime": {
+      "python_version": ">=3.10",
+      "dependencies": [
+        "fastmcp>=2.0.0",
+        "pymysql>=1.1.0",
+        "python-dotenv>=1.0.0"
+      ],
+      "docker_image": "my-data-mcp:1.0.0",
+      "port": 8000,
+      "base_path": "/mcp"
+    }
+  },
+  "dataset": {
+    "title": "My Dataset",
+    "description": "Description of your dataset.",
+    "keywords": ["keyword1", "keyword2"],
+    "temporal_coverage": {
+      "start": "2020-01-01",
+      "end": "2025-12-31",
+      "frequency": "annual"
+    },
+    "access": "restricted",
+    "license": "CC-BY-4.0"
+  },
+  "endpoints": {
+    "tools": {
+      "count": 6,
+      "categories": ["Example Tools", "Statistics Tools"]
+    },
+    "skills": {
+      "count": 3,
+      "available": ["example-health-check", "data-exploration", "statistical-analysis"]
+    },
+    "resources": {
+      "count": 3,
+      "available": ["mcp://hello", "mcp://metadata/manifest", "mcp://metadata/package"]
+    }
+  },
+  "provenance": {
+    "source_systems": [
+      {
+        "name": "My Database",
+        "type": "MySQL",
+        "description": "Primary data store"
+      }
+    ],
+    "extraction": {
+      "method": "Direct database connection",
+      "frequency": "real-time"
+    }
+  },
+  "generated": {
+    "timestamp": "2026-01-01T00:00:00+00:00",
+    "generator": "mcp_server.metadata.manifest",
+    "version": "1.0.0"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dataset.schema.json",
+  "title": "Dataset Metadata (DCAT-inspired)",
+  "description": "Describes the dataset exposed by the MCP server: coverage, publisher, access terms.",
+  "type": "object",
+  "required": ["title", "description"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Human-readable dataset title."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the dataset contents and scope."
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Discovery keywords / tags."
+    },
+    "spatial_coverage": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "regions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "bounding_box": {
+          "type": "object",
+          "properties": {
+            "north": { "type": "number" },
+            "south": { "type": "number" },
+            "east": { "type": "number" },
+            "west": { "type": "number" }
+          }
+        }
+      }
+    },
+    "temporal_coverage": {
+      "type": "object",
+      "properties": {
+        "start": { "type": "string", "format": "date" },
+        "end": { "type": "string", "format": "date" },
+        "frequency": { "type": "string" }
+      }
+    },
+    "publisher": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      }
+    },
+    "language": { "type": "string" },
+    "update_frequency": { "type": "string" },
+    "access": {
+      "type": "string",
+      "enum": ["open", "restricted", "private"]
+    },
+    "license": { "type": "string" }
+  }
+}

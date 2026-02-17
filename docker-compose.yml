@@ -1,0 +1,40 @@
+# docker-compose.yml — MCP Server
+#
+# Usage:
+#   docker compose up --build -d
+#   docker compose logs -f
+#   docker compose down
+#
+# Env vars read from .env automatically.
+# HOST_PORT controls the port exposed on the host (default 8001).
+# The container always listens on PORT (default 8000).
+
+services:
+  mcp-server:
+    build: .
+    container_name: ${COMPOSE_PROJECT_NAME:-my-mcp}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-8001}:${PORT:-8000}"
+    env_file:
+      - .env
+    environment:
+      - PORT=${PORT:-8000}
+      - MCP_BASE_PATH=${MCP_BASE_PATH:-/mcp}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"

@@ -1,0 +1,146 @@
+{
+  "package": {
+    "name": "my-data-mcp",
+    "version": "1.0.0",
+    "description": "MCP server for my dataset — replace with your project description",
+    "maintainer": {
+      "name": "Your Name",
+      "email": "you@example.com",
+      "organization": "Your Organization"
+    },
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/your-org/my-data-mcp"
+    },
+    "homepage": "https://github.com/your-org/my-data-mcp",
+    "runtime": {
+      "python_version": ">=3.10",
+      "dependencies": [
+        "fastmcp>=2.0.0",
+        "pymysql>=1.1.0",
+        "python-dotenv>=1.0.0"
+      ],
+      "docker_image": "my-data-mcp:1.0.0",
+      "port": 8000,
+      "base_path": "/mcp"
+    }
+  },
+  "dataset": {
+    "title": "My Dataset Title",
+    "description": "Describe your dataset: what it contains, how it was collected, its scope.",
+    "keywords": [
+      "replace",
+      "with",
+      "your",
+      "keywords"
+    ],
+    "spatial_coverage": {
+      "description": "Geographic scope of your data",
+      "regions": ["Region A", "Region B"],
+      "bounding_box": {
+        "north": 90.0,
+        "south": -90.0,
+        "east": 180.0,
+        "west": -180.0
+      }
+    },
+    "temporal_coverage": {
+      "start": "2020-01-01",
+      "end": "2025-12-31",
+      "frequency": "annual"
+    },
+    "publisher": {
+      "name": "Your Organization",
+      "url": "https://example.com"
+    },
+    "contact": {
+      "name": "Data Team",
+      "email": "data@example.com"
+    },
+    "language": "en",
+    "update_frequency": "annually",
+    "access": "restricted",
+    "license": "CC-BY-4.0"
+  },
+  "schema": {
+    "database": {
+      "type": "MySQL",
+      "version": "8.0",
+      "name": "mydb",
+      "tables": [
+        {
+          "name": "my_table",
+          "description": "Main data table",
+          "row_count": 0,
+          "primary_key": ["id"]
+        }
+      ]
+    },
+    "entities": [
+      {
+        "name": "Record",
+        "description": "A single observation/record in the dataset",
+        "fields": [
+          {
+            "name": "id",
+            "type": "INTEGER",
+            "description": "Primary key",
+            "required": true
+          },
+          {
+            "name": "value",
+            "type": "DECIMAL(10,2)",
+            "description": "Measured value",
+            "required": false,
+            "units": "unit"
+          }
+        ]
+      }
+    ]
+  },
+  "endpoints": {
+    "tools": {
+      "count": 0,
+      "categories": []
+    },
+    "skills": {
+      "count": 0,
+      "available": []
+    },
+    "resources": {
+      "count": 3,
+      "available": [
+        "mcp://hello",
+        "mcp://metadata/manifest",
+        "mcp://metadata/package"
+      ]
+    }
+  },
+  "provenance": {
+    "source_systems": [
+      {
+        "name": "Primary Database",
+        "type": "MySQL",
+        "description": "Main data source"
+      }
+    ],
+    "extraction": {
+      "method": "Direct database connection",
+      "frequency": "real-time",
+      "last_updated": "2025-01-01"
+    },
+    "processing": {
+      "steps": [
+        "Step 1: Describe your first processing step",
+        "Step 2: Describe your second processing step"
+      ],
+      "methodology": "Link to methodology documentation"
+    },
+    "quality": {
+      "completeness": 1.0,
+      "accuracy": "Describe accuracy level",
+      "consistency": "Describe consistency checks"
+    }
+  }
+}

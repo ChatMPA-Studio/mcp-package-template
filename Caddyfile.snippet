@@ -1,0 +1,45 @@
+# =============================================================================
+# Caddyfile snippet — mount MCP server under a subpath
+#
+# How to use:
+#   1. Copy this block into your main Caddyfile.
+#   2. Replace "example.com" with your domain.
+#   3. Replace "/example/" with your desired subpath (MUST end with /).
+#   4. Set MCP_USER and MCP_PASSWORD_HASH.
+#   5. Reload Caddy:  systemctl reload caddy
+#
+# Generate a bcrypt password hash:
+#   caddy hash-password --plaintext 'your-password'
+#
+# Subpath constraints:
+#   - The route MUST include a trailing slash: /example/*
+#   - strip_prefix removes the subpath before forwarding to the container.
+#   - The container sees requests at /mcp (its MCP_BASE_PATH), not /example/mcp.
+#   - Header forwarding (X-Forwarded-*) is handled automatically by Caddy.
+# =============================================================================
+
+example.com {
+
+    # MCP server at /example/
+    route /example/* {
+        # Basic authentication (optional but recommended)
+        basicauth {
+            # username: hash
+            # Generate hash: caddy hash-password --plaintext 'your-password'
+            mcp_user $2a$14$REPLACE_WITH_BCRYPT_HASH
+        }
+
+        # Strip the subpath prefix before forwarding
+        uri strip_prefix /example
+
+        # Forward to the MCP container (localhost:HOST_PORT)
+        reverse_proxy localhost:8001
+    }
+
+    # Add more MCP servers here:
+    # route /other-mcp/* {
+    #     basicauth { ... }
+    #     uri strip_prefix /other-mcp
+    #     reverse_proxy localhost:8002
+    # }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tool.schema.json",
+  "title": "MCP Tool Metadata",
+  "description": "Describes a single MCP tool: name, parameters, return type, and module.",
+  "type": "object",
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Tool function name as registered with FastMCP."
+    },
+    "description": {
+      "type": "string",
+      "description": "Tool docstring / purpose."
+    },
+    "module": {
+      "type": "string",
+      "description": "Python module path (e.g. 'mcp_server.tools.example_tools')."
+    },
+    "category": {
+      "type": "string",
+      "description": "Logical grouping (e.g. 'Data Access', 'Statistics')."
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "description": { "type": "string" },
+          "required": { "type": "boolean", "default": true },
+          "default": {}
+        }
+      }
+    },
+    "returns": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "default": "string" },
+        "format": { "type": "string", "default": "JSON" },
+        "description": { "type": "string" }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "object" },
+          "output": { "type": "string" }
+        }
+      }
+    }
+  }
+}
