@@ -53,9 +53,9 @@ Two independent guards:
 
 Uses `pkgutil.iter_modules()` to find all Python modules in `mcp_server/tools/`.  Each module with a `register(mcp)` function gets called at startup.
 
-### Skill Loader (`mcp_server/skills/loader.py`)
+### Skill Discovery (`mcp_server/prompts.py`)
 
-Scans `mcp_server/skills/` for `.md` files with YAML frontmatter.  Each skill is registered as an MCP prompt, making it discoverable by remote clients.
+Scans the top-level `skills/<name>/SKILL.md` files for YAML frontmatter.  Each skill is registered as an MCP prompt, making it discoverable by remote clients. A `.claude-plugin/` bundled alongside the server can also sync these into a researcher's local Claude Code skills automatically — see `docs/tutorials/08_package_as_plugin.md`.
 
 ### Database Layer (`mcp_server/db.py`)
 

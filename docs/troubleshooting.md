@@ -154,7 +154,7 @@ docker compose logs | grep -i "skill\|prompt"
 
 **Common causes:**
 - Missing YAML frontmatter (`---` delimiters)
-- File not in `mcp_server/skills/` directory
+- File not at `skills/<name>/SKILL.md` (top-level `skills/`, nested layout only)
 - Invalid YAML syntax in frontmatter
 - File extension not `.md`
 

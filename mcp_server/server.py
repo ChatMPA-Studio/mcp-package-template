@@ -2,7 +2,7 @@
 
 Creates the MCP server instance, registers resources, core tools,
 auto-discovers tool modules from mcp_server/tools/, and registers
-skills from mcp_server/skills/ as MCP prompts.
+skills from the top-level skills/ directory as MCP prompts.
 """
 
 import json
@@ -13,7 +13,7 @@ from fastmcp import FastMCP
 
 from mcp_server.db import test_connection
 from mcp_server.tools.discovery import discover_tools
-from mcp_server.skills.loader import discover_prompts
+from mcp_server.prompts import discover_prompts
 
 logger = logging.getLogger(__name__)
 

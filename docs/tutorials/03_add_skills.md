@@ -13,7 +13,7 @@ Create a guided workflow skill that orchestrates multiple tools.
 
 ### 1. Create a Skill File
 
-Create `mcp_server/skills/weather_report.md`:
+Create `skills/weather-report/SKILL.md`:
 
 ```markdown
 ---
@@ -72,13 +72,32 @@ Combine findings into a report:
 - Date range clearly stated
 ```
 
-### 2. Add Reference Material (Optional)
+### 2. Add a Contract and Register It
+
+Add the input schema at `skills/contracts/weather_report.schema.json`:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Weather Report Inputs",
+  "type": "object",
+  "properties": {
+    "station_id": {"type": "integer", "description": "Target station ID. Required."}
+  },
+  "required": ["station_id"],
+  "additionalProperties": false
+}
+```
+
+Then add an entry in `skills/registry.py` (optional, but keeps the catalog useful).
+
+### 2b. Add Reference Material (Optional)
 
 For skills that need supplementary context:
 
 ```
-mcp_server/skills/
-    weather_report/
+skills/
+    weather-report/
         SKILL.md           # The skill definition above
         references/
             climate_norms.md  # Automatically appended to the prompt

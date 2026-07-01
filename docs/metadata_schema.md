@@ -35,7 +35,7 @@ bash scripts/generate_manifest.sh
 The generator:
 1. Reads `metadata/template.json`
 2. Counts tool modules in `mcp_server/tools/`
-3. Lists skills in `mcp_server/skills/`
+3. Lists skills in `skills/`
 4. Stamps a generation timestamp
 5. Writes `metadata/manifest.json`
 
