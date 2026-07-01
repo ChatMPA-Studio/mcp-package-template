@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.org/schemas/skills/statistical_analysis.schema.json",
+  "title": "Statistical Analysis Inputs",
+  "description": "Inputs for the statistical-analysis skill",
+  "type": "object",
+  "properties": {
+    "x": {
+      "type": "array",
+      "items": {"type": "number"},
+      "description": "Primary numeric series. Required."
+    },
+    "y": {
+      "type": ["array", "null"],
+      "items": {"type": "number"},
+      "description": "Optional second numeric series, for correlation analysis against x."
+    }
+  },
+  "required": ["x"],
+  "additionalProperties": false
+}

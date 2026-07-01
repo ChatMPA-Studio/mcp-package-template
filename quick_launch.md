@@ -86,7 +86,7 @@ def register(mcp: FastMCP) -> None:
 
 ## Add a New Skill
 
-1. Create `mcp_server/skills/my_workflow.md`:
+1. Create `skills/my-workflow/SKILL.md`:
 
 ```markdown
 ---

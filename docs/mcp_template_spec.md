@@ -36,7 +36,7 @@ def register(mcp: FastMCP) -> None:
 
 ### Skill Definition Contract
 
-Every `.md` file in `mcp_server/skills/` (flat) or `mcp_server/skills/<name>/SKILL.md` (nested) is a candidate skill.
+Every `skills/<name>/SKILL.md` (top-level `skills/`, nested layout only) is a candidate skill.
 
 **Required YAML frontmatter:**
 ```yaml

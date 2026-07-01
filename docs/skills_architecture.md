@@ -3,7 +3,7 @@
 ## What Skills Are
 
 Skills are markdown-driven guided workflows that orchestrate MCP tools.  They are:
-- **Agent-agnostic** — any AI assistant can follow them (Claude, ChatGPT, custom agents).
+- **Agent-agnostic** — any AI assistant can follow them (Claude, ChatGPT, custom agents), because the mechanism is standard MCP, not a Claude-specific format.
 - **Composable** — they reference tools by name, not by implementation.
 - **Discoverable** — registered as MCP prompts, visible to remote clients.
 
@@ -17,26 +17,25 @@ Skills are markdown-driven guided workflows that orchestrate MCP tools.  They ar
 
 The key insight: the skill body is a **prompt** sent to the AI assistant.  The assistant reads the step-by-step instructions and calls the specified tools.
 
+This part — the MCP server, its tools, and its prompts — is portable across any MCP-aware client. What's Claude Code-specific is purely the *distribution convenience layer* built on top of it: see `docs/tutorials/08_package_as_plugin.md` for how `.claude-plugin/` auto-installs these skills as local Claude Code commands, so a researcher doesn't need their client to support live MCP prompts at all.
+
 ## Skill File Format
 
-### Flat Layout
+Skills live in a **top-level `skills/` directory** (a sibling of `mcp_server/`, not a subpackage of it) — this keeps skill content (markdown, not Python) separate from the server implementation, and makes it directly fetchable via the GitHub Contents API (see `scripts/install_skills.sh`).
 
 ```
-mcp_server/skills/
-    my_workflow.md
-    another_workflow.md
+skills/
+├── README.md
+├── registry.py              # Developer catalog — not loaded at runtime
+├── contracts/                # JSON Schema per skill
+│   └── your_skill.schema.json
+└── your-skill-name/
+    ├── SKILL.md              # Main skill definition
+    └── references/           # Optional — appended to the prompt body
+        └── methodology.md
 ```
 
-### Nested Layout (with references)
-
-```
-mcp_server/skills/
-    my_workflow/
-        SKILL.md              # Main skill definition
-        references/
-            methodology.md    # Appended to the prompt body
-            taxonomy.md       # Appended to the prompt body
-```
+Only the nested `skills/<name>/SKILL.md` layout is supported (no flat single-file skills) — this keeps every skill's contract, references, and definition co-located under one directory.
 
 ### YAML Frontmatter
 
@@ -76,11 +75,13 @@ What this workflow accomplishes.
 
 ## Adding a New Skill
 
-1. Create the markdown file in `mcp_server/skills/`.
-2. Add YAML frontmatter with `name` and `description`.
-3. Write step-by-step instructions referencing existing tools.
+1. Create `skills/your-skill-name/SKILL.md` with YAML frontmatter (`name`, `description`, `version`, `inputs`, `outputs`).
+2. Add a contract in `skills/contracts/your_skill_name.schema.json` — the JSON Schema for the skill's inputs.
+3. Register it in `skills/registry.py` (optional; keeps the catalog useful for docs/tooling — `mcp_server/prompts.py` discovers skills directly from disk and doesn't read this file).
 4. Restart the server.
 5. Verify: `curl ... -d '{"method":"prompts/list"}'`
+
+No redistribution step is needed beyond that — researchers using the `.claude-plugin` get the new skill automatically on their next session.
 
 ## Design Guidelines
 
@@ -90,15 +91,22 @@ What this workflow accomplishes.
 4. **Define success** — What does a "complete" run look like?
 5. **Reference materials** — Put supplementary context in `references/` — the loader appends it automatically.
 
+## Invocation Methods
+
+| Method | Command | Requires |
+|--------|---------|---------|
+| MCP Prompt (live) | `/mcp__<server-name>__<skill-name>` | Server connected in client config. Support for surfacing MCP prompts as commands varies by client — verify with a raw `prompts/list` call if it doesn't appear. |
+| Local install | `/<skill-name>` | `bash scripts/install_skills.sh`, or a `.claude-plugin` install (auto-syncs every session) |
+
 ## Registry
 
 The `registry.py` module provides programmatic access to skill metadata:
 
 ```python
-from mcp_server.skills.registry import list_skills
+from skills.registry import list_skills
 
 for skill in list_skills():
     print(f"{skill['name']}: {skill['description']}")
 ```
 
-This is useful for documentation generation, admin interfaces, or manifest building.
+This is useful for documentation generation, admin interfaces, or manifest building. It is a developer convenience only — it is not read by `mcp_server/prompts.py` at runtime.

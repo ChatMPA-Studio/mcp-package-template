@@ -2,7 +2,7 @@
 
 A production-ready template for building [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) servers that expose databases, APIs, or any data source to AI assistants.
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Runtime:** Python 3.10+, [FastMCP 2.x](https://github.com/jlowin/fastmcp)
 **Transport:** HTTP/SSE (Docker) or stdio (local development)
 
@@ -12,13 +12,14 @@ A production-ready template for building [Model Context Protocol](https://modelc
 |-----------|-------------|
 | **FastMCP server** | Entry point with SSE transport, tool/skill auto-discovery |
 | **Tool auto-discovery** | Drop a Python module in `mcp_server/tools/`, it registers automatically |
-| **Skill system** | Markdown-driven guided workflows with YAML frontmatter |
+| **Skill system** | Markdown-driven guided workflows in top-level `skills/`, auto-registered as MCP prompts, each with a JSON Schema input contract |
 | **Config module** | `.env`-based config with `DATABASE_URL` or component vars |
 | **Security layer** | SQL whitelist + read-only enforcement (optional, for DB-backed MCPs) |
 | **Metadata schemas** | DCAT-inspired JSON schemas for package, dataset, provenance, tools |
 | **Docker packaging** | Multi-stage Dockerfile + docker-compose with health checks |
 | **Reverse proxy** | Caddyfile snippet for subpath routing with Basic Auth |
-| **Scripts** | Dev runner, smoke tests, manifest generator, CRLF validator |
+| **Claude Code plugin** | `.claude-plugin/` bundles the MCP connection + a `SessionStart` hook that auto-syncs skills locally every session |
+| **Scripts** | Dev runner, smoke tests, manifest generator, CRLF validator, skill installer, deploy workflow |
 | **Documentation** | Architecture docs, tutorials, deployment guide |
 
 ## Quick Start
@@ -72,6 +73,7 @@ my-new-mcp/
 |   |-- server.py           # FastMCP entry point
 |   |-- __main__.py          # HTTP runner
 |   |-- db.py                # Database connection layer
+|   |-- prompts.py           # Skill auto-discovery + MCP prompt registration (reads top-level skills/)
 |   |-- config/
 |   |   |-- settings.py      # Environment variable loading
 |   |-- security/
@@ -81,15 +83,21 @@ my-new-mcp/
 |   |   |-- discovery.py     # Auto-discovery engine
 |   |   |-- example_tools.py # Example: echo, server_time, calculator
 |   |   |-- statistics_tools.py  # Example: descriptive_stats, correlation
-|   |-- skills/
-|   |   |-- loader.py        # Skill auto-discovery + MCP prompt registration
-|   |   |-- registry.py      # Programmatic skill listing
-|   |   |-- *.md             # Skill definitions (YAML frontmatter + body)
 |   |-- metadata/
 |   |   |-- manifest.py      # Manifest generator
 |   |   |-- schema/          # JSON schemas (package, dataset, provenance, tool)
 |   |-- resources/
 |       |-- README.md        # Resource documentation
+|-- skills/                  # Skill definitions (top-level, not under mcp_server/)
+|   |-- README.md
+|   |-- registry.py          # Programmatic skill listing (dev reference only)
+|   |-- contracts/           # JSON Schema input contract per skill
+|   |-- <skill-name>/
+|       |-- SKILL.md         # YAML frontmatter + guided workflow body
+|-- .claude-plugin/          # Claude Code plugin: MCP connection + skill auto-sync
+|   |-- plugin.json          # mcpServers config + SessionStart hook
+|   |-- scripts/
+|       |-- sync_skills.sh   # Hook target — pulls skills/ into ~/.claude/skills/ every session
 |-- metadata/
 |   |-- template.json        # Base metadata (edit for your project)
 |-- scripts/
@@ -97,6 +105,8 @@ my-new-mcp/
 |   |-- smoke_test.sh        # Curl-based integration tests
 |   |-- generate_manifest.sh # Manifest generation
 |   |-- validate_line_endings.sh  # CRLF detection
+|   |-- install_skills.sh    # Manual one-shot skill install (curl + python3, no gh CLI)
+|   |-- deploy.sh            # Backup -> pull -> rebuild -> health-check deploy workflow
 |-- docs/                    # Architecture and tutorial documentation
 |-- Dockerfile               # Multi-stage production build
 |-- docker-compose.yml       # Container orchestration
@@ -117,13 +127,17 @@ When creating a new MCP from this template:
 6. **`.env.example`** — Update with your database connection details
 7. **`docker-compose.yml`** — Set `COMPOSE_PROJECT_NAME` to your project name
 8. **`Caddyfile.snippet`** — Set your domain and subpath
+9. **`skills/`** — Replace the three example skills with your own domain workflows (see `docs/skills_architecture.md`)
+10. **`scripts/install_skills.sh`** — Set `GITHUB_ORG` / `GITHUB_REPO` / `GITHUB_REF`
+11. **`.claude-plugin/plugin.json`** and **`.claude-plugin/scripts/sync_skills.sh`** — Fill in the `{{placeholders}}` (see `docs/tutorials/08_package_as_plugin.md`)
 
 ## Documentation
 
 - [Quick Launch Guide](quick_launch.md) — One-page onboarding
 - [Deployment Guide](DEPLOYMENT.md) — Full deployment workflow
 - [API Examples](docs/api_examples.md) — curl JSON-RPC examples
-- [Tutorials](docs/tutorials/) — Step-by-step guides
+- [Skills Architecture](docs/skills_architecture.md) — how skills are authored and discovered
+- [Tutorials](docs/tutorials/) — Step-by-step guides, including [packaging as a Claude Code plugin](docs/tutorials/08_package_as_plugin.md)
 - [Troubleshooting](docs/troubleshooting.md) — Common pitfalls and fixes
 
 ## License
