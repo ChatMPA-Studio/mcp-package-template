@@ -2,14 +2,9 @@
   "name": "{{package_name}}",
   "version": "{{version}}",
   "description": "{{description}} — connects to the MCP server and keeps its skills synced locally every session.",
-  "mcpServers": {
-    "{{package_name}}": {
-      "type": "http",
-      "url": "{{MCP_SERVER_URL}}",
-      "headers": {
-        "Authorization": "{{MCP_AUTH_HEADER}}"
-      }
-    }
+  "author": {
+    "name": "{{AUTHOR_NAME}}",
+    "email": "{{AUTHOR_EMAIL}}"
   },
   "hooks": {
     "SessionStart": [

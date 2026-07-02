@@ -1,0 +1,9 @@
+{
+  "{{package_name}}": {
+    "type": "http",
+    "url": "{{MCP_SERVER_URL}}",
+    "headers": {
+      "Authorization": "${{{ENV_AUTH_HEADER}}}"
+    }
+  }
+}

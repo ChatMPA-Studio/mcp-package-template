@@ -39,6 +39,10 @@ _list_names() {
     _curl "$1" | python3 -c 'import json,sys; [print(e["name"]) for e in json.load(sys.stdin)]'
 }
 
+_list_dirs() {
+    _curl "$1" | python3 -c 'import json,sys; [print(e["name"]) for e in json.load(sys.stdin) if e.get("type") == "dir"]'
+}
+
 _fetch_file() {
     _curl "$1" | python3 -c 'import json,sys,base64; d=json.load(sys.stdin); sys.stdout.buffer.write(base64.b64decode(d["content"]))' > "$2"
 }
@@ -54,7 +58,7 @@ _is_skipped() {
 mkdir -p "${SKILLS_DIR}"
 synced=0
 
-skill_names="$(_list_names "${API}/skills?ref=${GITHUB_REF}" 2>/dev/null || true)"
+skill_names="$(_list_dirs "${API}/skills?ref=${GITHUB_REF}" 2>/dev/null || true)"
 if [[ -z "$skill_names" ]]; then
     echo "[${GITHUB_REPO}] skill sync skipped (server unreachable or skills/ not found)"
     exit 0

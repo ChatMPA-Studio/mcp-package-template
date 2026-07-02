@@ -94,8 +94,10 @@ my-new-mcp/
 |   |-- contracts/           # JSON Schema input contract per skill
 |   |-- <skill-name>/
 |       |-- SKILL.md         # YAML frontmatter + guided workflow body
-|-- .claude-plugin/          # Claude Code plugin: MCP connection + skill auto-sync
-|   |-- plugin.json          # mcpServers config + SessionStart hook
+|-- .mcp.json                # MCP server connection (HTTP endpoint + auth env var)
+|-- .claude-plugin/          # Claude Code plugin: SessionStart hook + marketplace manifest
+|   |-- plugin.json          # Plugin metadata + SessionStart hook (no credentials)
+|   |-- marketplace.json     # Self-hosted marketplace so 'claude plugin marketplace add' works
 |   |-- scripts/
 |       |-- sync_skills.sh   # Hook target — pulls skills/ into ~/.claude/skills/ every session
 |-- metadata/
@@ -129,7 +131,8 @@ When creating a new MCP from this template:
 8. **`Caddyfile.snippet`** — Set your domain and subpath
 9. **`skills/`** — Replace the three example skills with your own domain workflows (see `docs/skills_architecture.md`)
 10. **`scripts/install_skills.sh`** — Set `GITHUB_ORG` / `GITHUB_REPO` / `GITHUB_REF`
-11. **`.claude-plugin/plugin.json`** and **`.claude-plugin/scripts/sync_skills.sh`** — Fill in the `{{placeholders}}` (see `docs/tutorials/08_package_as_plugin.md`)
+11. **`.mcp.json`** — Fill in `{{MCP_SERVER_URL}}`; set `{{ENV_AUTH_HEADER}}` to the env var name researchers will export (e.g. `MYPROJECT_AUTH_HEADER`). Never hardcode the token value — researchers set the env var in their shell profile.
+12. **`.claude-plugin/plugin.json`**, **`.claude-plugin/marketplace.json`**, and **`.claude-plugin/scripts/sync_skills.sh`** — Fill in the `{{placeholders}}` (see `docs/tutorials/08_package_as_plugin.md`)
 
 ## Documentation
 
