@@ -1,0 +1,47 @@
+# Secrets — never bake credentials into the image
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Virtual environments
+.venv/
+venv/
+
+# Python cache / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Development / test material not needed at runtime
+tests/
+docs/
+scripts/
+data/
+db/
+.claude/
+.claude-plugin/
+.github/
+
+# IDE / tooling caches
+.vscode/
+.idea/
+.pytest_cache/
+
+# Docker meta (avoid recursive build context)
+docker-compose*.yml
+Dockerfile
+
+# Root-level docs (not needed in image; keep README)
+*.md
+!README.md
+
+# OS artifacts
+.DS_Store
+Thumbs.db

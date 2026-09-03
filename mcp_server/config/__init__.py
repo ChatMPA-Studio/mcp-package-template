@@ -11,6 +11,8 @@ from mcp_server.config.settings import (
     DB_PASSWORD,
     DB_NAME,
     DB_BACKEND,
+    DB_SSL,
+    DB_SSL_CA,
     setup_logging,
     print_startup_summary,
 )
@@ -26,6 +28,8 @@ __all__ = [
     "DB_PASSWORD",
     "DB_NAME",
     "DB_BACKEND",
+    "DB_SSL",
+    "DB_SSL_CA",
     "setup_logging",
     "print_startup_summary",
 ]
