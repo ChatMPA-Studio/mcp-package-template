@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "{{MARKETPLACE_NAME}}",
+  "description": "{{MARKETPLACE_DESCRIPTION}}",
+  "owner": {
+    "name": "{{AUTHOR_NAME}}",
+    "email": "{{AUTHOR_EMAIL}}"
+  },
+  "plugins": [
+    {
+      "name": "{{package_name}}",
+      "description": "{{description}} — connects to the MCP server and keeps its skills synced locally every session.",
+      "author": {
+        "name": "{{AUTHOR_NAME}}"
+      },
+      "category": "data",
+      "source": ".",
+      "homepage": "https://github.com/{{GITHUB_ORG}}/{{GITHUB_REPO}}"
+    }
+  ]
+}
