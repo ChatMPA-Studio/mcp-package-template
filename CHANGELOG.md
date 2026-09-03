@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.2.0] — 2026-09-03
+
+Syncs configuration + deployment fixes that converged across the production
+MCPs built from this template — erddap-db-mcp, ltem-db-mcp, conapesca-db-mcp.
+Only multi-repo / generic-safe changes were taken; single-repo drift
+(hatchling, Python 3.11 floor, data-science stack, per-DB version checks,
+top-level `tools/` layout) was intentionally left out.
+
+### Added
+
+- `run_stdio.py` — stdio transport entry point for Claude Desktop. HTTP stays
+  `python -m mcp_server`. Convergent across erddap-db-mcp and conapesca-db-mcp.
+- `.dockerignore` — keeps secrets, caches, tests, docs and CI out of the build
+  context. Present in all three production MCPs; was missing here.
+- Database **TLS/SSL** support — `DB_SSL` / `DB_SSL_CA` wired through
+  `mcp_server/config/settings.py` and `mcp_server/db.py` (OFF by default;
+  encrypts, and verifies the server cert when a CA bundle is supplied).
+  Backported from ltem-db-mcp, which needed it once its RDS instance was
+  reachable over the public internet. Documented in `.env.example`.
+- `.github/workflows/deploy.yml` — SSH-triggered deploy that invokes the
+  existing `scripts/deploy.sh`. Requires `DEPLOY_HOST` / `DEPLOY_SSH_KEY` /
+  `DEPLOY_PATH` repo secrets.
+
+### Changed
+
+- `pyproject.toml`: pin `fastmcp>=2.0.0,<3.0.0`. fastmcp 3.x became a
+  meta-package and changed the HTTP/SSE transport surface; the pin keeps
+  streamable-HTTP + SSE working behind the chatMPA gateway. Documented as an
+  explicit fix in conapesca-db-mcp.
+
 ## [1.1.0] — 2026-07-01
 
 Ports forward the skills/distribution work done in

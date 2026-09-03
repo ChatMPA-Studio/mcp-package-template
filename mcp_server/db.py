@@ -13,7 +13,10 @@ from typing import Any
 import pymysql
 import pymysql.cursors
 
-from mcp_server.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_BACKEND
+from mcp_server.config import (
+    DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_BACKEND,
+    DB_SSL, DB_SSL_CA,
+)
 from mcp_server.security import validate_sql, enforce_limit, DEFAULT_TIMEOUT, DEFAULT_MAX_ROWS
 
 
@@ -24,7 +27,7 @@ def get_connection():
     PostgreSQL (psycopg2) or SQLite (stdlib sqlite3) support.
     """
     if DB_BACKEND in ("mysql", "mysql+pymysql"):
-        return pymysql.connect(
+        conn_kwargs = dict(
             host=DB_HOST,
             port=DB_PORT,
             user=DB_USER,
@@ -36,6 +39,13 @@ def get_connection():
             connect_timeout=10,
             charset="utf8mb4",
         )
+        # Optional TLS (OFF by default).  With a CA bundle the server cert is
+        # verified; without one, the connection is encrypted but unverified.
+        if DB_SSL:
+            conn_kwargs["ssl"] = (
+                {"ca": DB_SSL_CA} if DB_SSL_CA else {"check_hostname": False}
+            )
+        return pymysql.connect(**conn_kwargs)
     raise RuntimeError(
         f"Unsupported DB_BACKEND '{DB_BACKEND}'. "
         "Extend db.py:get_connection() for your database driver."
