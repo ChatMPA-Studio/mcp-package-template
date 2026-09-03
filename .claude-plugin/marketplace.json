@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "chatmpa-studio",
+  "description": "ChatMPA Studio MCP servers and skills",
+  "owner": {
+    "name": "ChatMPA Studio",
+    "email": "CHANGEME@example.org"
+  },
+  "plugins": [
+    {
+      "name": "my-data-mcp",
+      "description": "CHANGEME — one-line description of this MCP server.",
+      "author": {
+        "name": "ChatMPA Studio"
+      },
+      "category": "data",
+      "source": ".",
+      "homepage": "https://github.com/ChatMPA-Studio/my-data-mcp"
+    }
+  ]
+}

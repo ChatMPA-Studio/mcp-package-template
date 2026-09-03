@@ -1,0 +1,21 @@
+{
+  "name": "my-data-mcp",
+  "version": "1.0.0",
+  "description": "CHANGEME — one-line description of this MCP server; connects to the MCP server and keeps its skills synced locally every session.",
+  "author": {
+    "name": "ChatMPA Studio",
+    "email": "CHANGEME@example.org"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/sync_skills.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

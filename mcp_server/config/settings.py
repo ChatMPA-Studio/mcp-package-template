@@ -107,6 +107,19 @@ else:
 
 
 # ---------------------------------------------------------------------------
+# Database TLS / SSL (optional; OFF by default)
+# ---------------------------------------------------------------------------
+# Leaving DB_SSL unset keeps the previous plain-connection behavior.
+# Set DB_SSL=true to encrypt the connection.  Point DB_SSL_CA at your provider's
+# CA bundle to also verify the server certificate — strongly recommended once
+# the database is reachable over the public internet.  Amazon RDS bundle:
+#   https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+
+DB_SSL: bool = os.getenv("DB_SSL", "false").strip().lower() in ("1", "true", "yes", "on")
+DB_SSL_CA: str | None = os.getenv("DB_SSL_CA") or None
+
+
+# ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
 
@@ -132,6 +145,7 @@ def print_startup_summary() -> None:
     logger.info("  DB User:     %s", DB_USER)
     logger.info("  DB Name:     %s", DB_NAME)
     logger.info("  DB Password: %s", "****" if DB_PASSWORD else "NOT SET")
+    logger.info("  DB SSL:      %s", "on" if DB_SSL else "off")
     if DATABASE_URL:
         logger.info("  Source:      DATABASE_URL")
     else:

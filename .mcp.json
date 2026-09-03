@@ -1,0 +1,9 @@
+{
+  "my-data-mcp": {
+    "type": "http",
+    "url": "http://CHANGEME-host/mcp/",
+    "headers": {
+      "Authorization": "${MY_MCP_AUTH_HEADER}"
+    }
+  }
+}
