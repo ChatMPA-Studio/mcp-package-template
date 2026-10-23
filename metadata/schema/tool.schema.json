@@ -16,7 +16,7 @@
     },
     "module": {
       "type": "string",
-      "description": "Python module path (e.g. 'mcp_server.tools.example_tools')."
+      "description": "Python module path (e.g. 'tools.example_tools')."
     },
     "category": {
       "type": "string",

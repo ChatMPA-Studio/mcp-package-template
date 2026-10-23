@@ -6,7 +6,7 @@ The metadata system provides structured, machine-readable descriptions of the MC
 
 ## Schema Files
 
-Located in `mcp_server/metadata/schema/`:
+Located in `metadata/schema/`:
 
 | Schema | Purpose |
 |--------|---------|
@@ -23,10 +23,10 @@ Located in `mcp_server/metadata/schema/`:
 
 ```bash
 # Generate metadata/manifest.json
-python -m mcp_server.metadata.manifest
+python scripts/generate_metadata_manifest.py
 
 # Print to stdout instead
-python -m mcp_server.metadata.manifest --stdout
+python scripts/generate_metadata_manifest.py --stdout
 
 # Via script
 bash scripts/generate_manifest.sh
@@ -34,7 +34,7 @@ bash scripts/generate_manifest.sh
 
 The generator:
 1. Reads `metadata/template.json`
-2. Counts tool modules in `mcp_server/tools/`
+2. Counts tool modules in `tools/`
 3. Lists skills in `skills/`
 4. Stamps a generation timestamp
 5. Writes `metadata/manifest.json`
@@ -99,7 +99,7 @@ The schemas use JSON Schema draft 2020-12.  You can validate your template again
 pip install jsonschema
 python -c "
 import json, jsonschema
-schema = json.load(open('mcp_server/metadata/schema/package.schema.json'))
+schema = json.load(open('metadata/schema/package.schema.json'))
 data = json.load(open('metadata/template.json'))
 jsonschema.validate(data['package'], schema)
 print('Valid!')

@@ -1,0 +1,34 @@
+# Environment and secrets — never commit real values
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Generated
+metadata/manifest.json
+.github/ecs-task-definition.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# pytest
+.pytest_cache/

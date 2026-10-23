@@ -55,20 +55,19 @@ docker exec my-mcp ps aux
 
 ### Changing the Port
 
-1. Edit `.env`: `HOST_PORT=8002`
-2. Update Caddy: `reverse_proxy localhost:8002`
-3. Restart both: `docker compose restart && systemctl reload caddy`
+1. Local Docker: edit `.env` (`HOST_PORT=8002`) and run `docker compose up -d`.
+2. ECS: the container port (`PORT`) must match the task definition's port mapping and the load balancer's target group; change them together with the platform's operators.
 
 ### Adding Tables to the Whitelist
 
-1. Edit `mcp_server/security/sql_whitelist.py`:
+1. Edit `mcp_server/security.py` (database source only):
    ```python
-   ALLOWED_TABLES = {
+   ALLOWED_TABLES: set[str] = {
        "existing_table",
        "new_table",  # <-- add here
    }
    ```
-2. Rebuild: `docker compose up --build -d`
+2. Rebuild: `docker compose up --build -d` (or deploy through `release`).
 
 ### Adjusting Resource Limits
 
@@ -83,22 +82,18 @@ deploy:
 
 ## User Management
 
-### Caddy Basic Auth
+### API keys (AUTH_ENABLED=true)
 
-Add users:
-```bash
-caddy hash-password --plaintext 'user-password'
-```
+Access is per investigator key, not per server password. Keys are issued and
+revoked by the platform's admin panel, which stores only each key's SHA-256
+hash in the shared key table, with the investigator id and the scopes it opens.
+This server only reads that table:
 
-Edit Caddyfile:
-```caddy
-basicauth {
-    admin   $2a$14$HASH_FOR_ADMIN
-    analyst $2a$14$HASH_FOR_ANALYST
-}
-```
+- A key works here only if its `scopes` include this server's `AUTH_REQUIRED_SCOPE`.
+- Revoking a key (setting `revoked_at`) takes effect within `AUTH_CACHE_TTL_SECONDS` (default 60 s) on each replica.
+- Rejections are logged as `auth_rejected` with the reason: `key_not_found`, `key_revoked` or `missing_scope`.
 
-Reload: `systemctl reload caddy`
+Never send keys by chat or commit them; clients read them from an environment variable.
 
 ## Backup
 

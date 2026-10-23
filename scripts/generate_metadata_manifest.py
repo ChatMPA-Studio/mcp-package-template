@@ -1,8 +1,8 @@
 """Manifest generator — build manifest.json from template.json + live introspection.
 
 Usage:
-    python -m mcp_server.metadata.manifest          # writes metadata/manifest.json
-    python -m mcp_server.metadata.manifest --stdout  # prints to stdout
+    python scripts/generate_metadata_manifest.py          # writes metadata/manifest.json
+    python scripts/generate_metadata_manifest.py --stdout  # prints to stdout
 
 The generator:
   1. Reads ``metadata/template.json`` as the base manifest.
@@ -16,14 +16,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_PATH = PROJECT_ROOT / "metadata" / "template.json"
 OUTPUT_PATH = PROJECT_ROOT / "metadata" / "manifest.json"
 
 
 def _count_tools() -> tuple[int, list[str]]:
     """Introspect tool modules and return (count, category_names)."""
-    tools_dir = PROJECT_ROOT / "mcp_server" / "tools"
+    tools_dir = PROJECT_ROOT / "tools"
     categories: list[str] = []
     count = 0
 
@@ -42,7 +42,7 @@ def _count_tools() -> tuple[int, list[str]]:
 
 def _count_skills() -> tuple[int, list[str]]:
     """List skill names from the skills directory."""
-    skills_dir = PROJECT_ROOT / "mcp_server" / "skills"
+    skills_dir = PROJECT_ROOT / "skills"
     names: list[str] = []
 
     if skills_dir.is_dir():
@@ -79,7 +79,7 @@ def generate_manifest() -> dict:
     # Stamp generation time
     manifest["generated"] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "generator": "mcp_server.metadata.manifest",
+        "generator": "scripts/generate_metadata_manifest.py",
         "version": "1.0.0",
     }
 
@@ -99,7 +99,7 @@ def write_manifest(to_stdout: bool = False) -> None:
         print(f"Manifest written to {OUTPUT_PATH}")
 
 
-# Allow running as: python -m mcp_server.metadata.manifest
+# Allow running as: python scripts/generate_metadata_manifest.py
 if __name__ == "__main__":
     to_stdout = "--stdout" in sys.argv
     write_manifest(to_stdout=to_stdout)

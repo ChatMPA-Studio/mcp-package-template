@@ -62,7 +62,7 @@
   },
   "generated": {
     "timestamp": "2026-01-01T00:00:00+00:00",
-    "generator": "mcp_server.metadata.manifest",
+    "generator": "scripts/generate_metadata_manifest.py",
     "version": "1.0.0"
   }
 }

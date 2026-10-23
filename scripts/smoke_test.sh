@@ -5,17 +5,20 @@
 # Usage:
 #   bash scripts/smoke_test.sh                    # default: localhost:8000/mcp
 #   bash scripts/smoke_test.sh http://host:port/path
+#   MCP_SMOKE_KEY=<key> bash scripts/smoke_test.sh https://…/mcp   # with AUTH_ENABLED
 #
-# What it tests:
+# What it tests (only things every MCP from this template has):
 #   1. Initialize handshake (JSON-RPC 2.0)
-#   2. Tool call: echo
-#   3. Tool call: server_time
-#   4. Tool call: calculator
-#   5. Resource fetch: mcp://hello
-#   6. Prompt listing (skills)
+#   2. tools/list returns tools
+#   3. Tool call: health_check (reports the data source's status)
+#   4. Resource fetch: mcp://hello
+#   5. Prompt listing (skills)
+#
+# The key is read from the MCP_SMOKE_KEY environment variable, never from an
+# argument (arguments end up in shell history).
 #
 # Prerequisites:
-#   - curl and jq installed
+#   - curl installed
 #   - MCP server running
 # =============================================================================
 
@@ -31,6 +34,11 @@ NC='\033[0m'
 
 PASS=0
 FAIL=0
+
+AUTH_HEADER=()
+if [ -n "${MCP_SMOKE_KEY:-}" ]; then
+    AUTH_HEADER=(-H "Authorization: Bearer ${MCP_SMOKE_KEY}")
+fi
 
 check() {
     local name="$1"
@@ -49,15 +57,17 @@ check() {
 
 rpc_call() {
     local body="$1"
-    curl -sf -X POST "$BASE_URL" \
+    curl -sf --compressed -X POST "$BASE_URL" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \
+        ${AUTH_HEADER[@]+"${AUTH_HEADER[@]}"} \
         -d "$body" 2>/dev/null || echo '{"error":"connection_failed"}'
 }
 
 echo ""
 echo "=== MCP Smoke Test ==="
 echo "Target: $BASE_URL"
+[ -n "${MCP_SMOKE_KEY:-}" ] && echo "Auth:   Bearer key from MCP_SMOKE_KEY"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -77,69 +87,57 @@ INIT=$(rpc_call '{
 check "JSON-RPC initialize" "$INIT" '"jsonrpc"'
 
 # ---------------------------------------------------------------------------
-# 2. Tool: echo
+# 2. Tools listing
 # ---------------------------------------------------------------------------
-echo "--- Tool: echo ---"
-ECHO=$(rpc_call '{
+echo "--- Tools ---"
+TOOLS=$(rpc_call '{
     "jsonrpc": "2.0",
     "id": 2,
-    "method": "tools/call",
-    "params": {
-        "name": "echo",
-        "arguments": {"message": "smoke-test"}
-    }
+    "method": "tools/list",
+    "params": {}
 }')
-check "echo tool returns message" "$ECHO" 'smoke-test'
+check "tools/list includes health_check" "$TOOLS" '"health_check"'
 
 # ---------------------------------------------------------------------------
-# 3. Tool: server_time
+# 3. Tool: health_check
 # ---------------------------------------------------------------------------
-echo "--- Tool: server_time ---"
-TIME=$(rpc_call '{
+echo "--- Tool: health_check ---"
+HEALTH=$(rpc_call '{
     "jsonrpc": "2.0",
     "id": 3,
     "method": "tools/call",
     "params": {
-        "name": "server_time",
+        "name": "health_check",
         "arguments": {}
     }
 }')
-check "server_time returns UTC" "$TIME" 'utc'
+check "health_check answers" "$HEALTH" 'status'
+if echo "$HEALTH" | grep -q 'status\\\?": \\\?"ok'; then
+    echo -e "        data source: ${GREEN}ok${NC}"
+else
+    echo -e "        ${YELLOW}data source not ok — read the health_check response above or the logs${NC}"
+    echo -e "        $(echo "$HEALTH" | head -c 300)"
+fi
 
 # ---------------------------------------------------------------------------
-# 4. Tool: calculator
-# ---------------------------------------------------------------------------
-echo "--- Tool: calculator ---"
-CALC=$(rpc_call '{
-    "jsonrpc": "2.0",
-    "id": 4,
-    "method": "tools/call",
-    "params": {
-        "name": "calculator",
-        "arguments": {"operation": "add", "a": 2, "b": 3}
-    }
-}')
-check "calculator 2+3" "$CALC" '"result"'
-
-# ---------------------------------------------------------------------------
-# 5. Resource: mcp://hello
+# 4. Resource: mcp://hello
 # ---------------------------------------------------------------------------
 echo "--- Resource: hello ---"
 HELLO=$(rpc_call '{
     "jsonrpc": "2.0",
-    "id": 5,
+    "id": 4,
     "method": "resources/read",
     "params": {"uri": "mcp://hello"}
 }')
 check "hello resource" "$HELLO" 'Hello'
 
 # ---------------------------------------------------------------------------
-# 6. Prompts listing (skills)
+# 5. Prompts listing (skills)
 # ---------------------------------------------------------------------------
 echo "--- Prompts (skills) ---"
 PROMPTS=$(rpc_call '{
     "jsonrpc": "2.0",
-    "id": 6,
+    "id": 5,
     "method": "prompts/list",
     "params": {}
 }')

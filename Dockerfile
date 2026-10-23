@@ -17,15 +17,10 @@ COPY pyproject.toml ./
 # --force-reinstall ensures transitive deps (e.g., packaging) get installed
 # into the --prefix path even if already present in the builder environment.
 # Without this, multi-stage builds silently drop transitive dependencies.
-RUN mkdir -p mcp_server mcp_server/tools mcp_server/skills \
-             mcp_server/config mcp_server/security mcp_server/metadata \
-             mcp_server/resources && \
-    touch mcp_server/__init__.py mcp_server/tools/__init__.py \
-          mcp_server/skills/__init__.py mcp_server/config/__init__.py \
-          mcp_server/security/__init__.py mcp_server/metadata/__init__.py \
-          mcp_server/resources/__init__.py && \
+RUN mkdir -p mcp_server tools && \
+    touch mcp_server/__init__.py tools/__init__.py && \
     pip install --no-cache-dir --force-reinstall --prefix=/install . && \
-    rm -rf mcp_server
+    rm -rf mcp_server tools
 
 # =============================================================================
 # Stage 2: Runtime — lean production image
@@ -43,6 +38,9 @@ COPY --from=builder /install /usr/local
 # Copy application source and install package (deps already cached)
 COPY pyproject.toml ./
 COPY mcp_server/ mcp_server/
+COPY tools/ tools/
+COPY skills/ skills/
+COPY resources/ resources/
 COPY metadata/ metadata/
 RUN pip install --no-cache-dir --no-deps .
 
