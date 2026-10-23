@@ -122,6 +122,25 @@ DB_POOL_MAX_CACHED: int = int(os.getenv("DB_POOL_MAX_CACHED", str(DB_POOL_MAX)))
 
 
 # ---------------------------------------------------------------------------
+# Auth settings (API key per investigator, validated against DynamoDB)
+# ---------------------------------------------------------------------------
+# Off by default: the key table is provisioned separately (infrastructure
+# repo) and may not exist in every environment. With AUTH_ENABLED=false the
+# server accepts requests without a key, so only enable it behind a network
+# boundary you control. See mcp_server/auth.py.
+
+AUTH_ENABLED: bool = _flag("AUTH_ENABLED")
+AUTH_DYNAMODB_TABLE: str = os.getenv("AUTH_DYNAMODB_TABLE", "")
+AUTH_AWS_REGION: str = os.getenv("AUTH_AWS_REGION", "")
+# The scope a key must carry to use this server (one per MCP, e.g. its data
+# source name). Keys are shared across the platform's servers; scopes decide
+# which servers each key opens.
+AUTH_REQUIRED_SCOPE: str = os.getenv("AUTH_REQUIRED_SCOPE", "")
+AUTH_CACHE_TTL_SECONDS: int = int(os.getenv("AUTH_CACHE_TTL_SECONDS", "60"))
+AUTH_CACHE_MAX_ENTRIES: int = int(os.getenv("AUTH_CACHE_MAX_ENTRIES", "1000"))
+
+
+# ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
 
@@ -141,6 +160,12 @@ def missing_required() -> list[str]:
                                 ("MCP_DB_PASSWORD", DB_PASSWORD), ("MCP_DB_NAME", DB_NAME)):
                 if not value:
                     problems.append(f"{name} is not set (or set DATABASE_URL)")
+    if AUTH_ENABLED:
+        for name, value in (("AUTH_DYNAMODB_TABLE", AUTH_DYNAMODB_TABLE),
+                            ("AUTH_AWS_REGION", AUTH_AWS_REGION),
+                            ("AUTH_REQUIRED_SCOPE", AUTH_REQUIRED_SCOPE)):
+            if not value:
+                problems.append(f"{name} is required when AUTH_ENABLED=true")
     return problems
 
 
@@ -187,4 +212,9 @@ def print_startup_summary() -> None:
         logger.info("  DB Pool:     min=%s max_cached=%s max=%s",
                     DB_POOL_MIN, DB_POOL_MAX_CACHED, DB_POOL_MAX)
         logger.info("  DB Config:   %s", "DATABASE_URL" if DATABASE_URL else "MCP_DB_* env vars")
+    logger.info(
+        "  Auth:        %s",
+        f"enabled (table={AUTH_DYNAMODB_TABLE}, region={AUTH_AWS_REGION}, scope={AUTH_REQUIRED_SCOPE})"
+        if AUTH_ENABLED else "disabled",
+    )
     logger.info("================================")
