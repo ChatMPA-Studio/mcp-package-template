@@ -10,9 +10,12 @@ import httpx
 import pytest
 from fastmcp import FastMCP
 
-from mcp_server import api_client, config, params, source
-from mcp_server.cache import TTLCache, cache
-from mcp_server.timing import source_stats
+pytestmark = pytest.mark.api
+api_client = pytest.importorskip("mcp_server.api_client", reason="API source removed from this MCP")
+
+from mcp_server import config, params, source  # noqa: E402
+from mcp_server.cache import TTLCache, cache  # noqa: E402
+from mcp_server.timing import source_stats  # noqa: E402
 
 BASE = "https://api.example.org/v1"
 SECRET = "s3cr3t-key-value"

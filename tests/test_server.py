@@ -28,16 +28,20 @@ def no_db_credentials(monkeypatch):
         monkeypatch.setattr(config, name, "")
 
 
-def test_server_lists_core_and_example_tools():
+def test_server_lists_health_check():
     names = {t.name for t in asyncio.run(mcp.list_tools())}
-    assert {"health_check", "echo", "server_time"} <= names
+    assert "health_check" in names
 
 
+@pytest.mark.db
 def test_db_source_registers_schema_tools():
+    if config.MCP_DATA_SOURCE != "db":
+        pytest.skip("server started with another data source")
     names = {t.name for t in asyncio.run(mcp.list_tools())}
     assert {"list_tables", "describe_table", "schema_snapshot"} <= names
 
 
+@pytest.mark.db
 def test_health_check_reports_missing_configuration(no_db_credentials):
     report = _call("health_check")
     assert report["status"] == "error"
@@ -45,7 +49,9 @@ def test_health_check_reports_missing_configuration(no_db_credentials):
     assert any("MCP_DB_HOST" in p for p in report["problems"])
 
 
+@pytest.mark.db
 def test_health_check_never_raises_on_connection_errors(monkeypatch):
+    monkeypatch.setattr(config, "MCP_DATA_SOURCE", "db")
     monkeypatch.setattr(config, "missing_required", lambda: [])
 
     def boom():
@@ -61,6 +67,7 @@ def test_unknown_data_source_is_reported(monkeypatch):
     assert any("MCP_DATA_SOURCE" in p for p in config.missing_required())
 
 
+@pytest.mark.db
 def test_startup_check_exits_with_a_clear_message(no_db_credentials):
     with pytest.raises(SystemExit) as exc:
         config.check_required()
@@ -68,9 +75,10 @@ def test_startup_check_exits_with_a_clear_message(no_db_credentials):
     assert ".env.example" in str(exc.value)
 
 
-def test_each_tool_call_is_logged_with_timing(caplog):
+def test_each_tool_call_is_logged_with_timing(caplog, monkeypatch):
+    monkeypatch.setattr(config, "missing_required", lambda: ["not configured (test)"])
     with caplog.at_level(logging.INFO, logger="mcp_server.timing"):
-        _call("echo", message="hola")
+        _call("health_check")
     line = next(r.getMessage() for r in caplog.records if r.name == "mcp_server.timing")
-    assert "tool=echo status=ok" in line
+    assert "tool=health_check status=ok" in line
     assert "source_ms=" in line and "bytes=" in line
