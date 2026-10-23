@@ -1,0 +1,35 @@
+# Deploy to a single server over SSH — alternative to deploy-ecs.yml.
+#
+# For MCPs that run with Docker Compose on one server instead of Amazon ECS.
+# Invokes scripts/deploy.sh on the server (backup → pull → rebuild → health check).
+#
+# Only one deployment method runs: this workflow runs when the repository
+# variable DEPLOY_TARGET is "ssh"; deploy-ecs.yml runs otherwise (and only if
+# AWS_ROLE_ARN is set). Both deploy what is pushed to the `release` branch.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   DEPLOY_HOST     — server hostname or IP
+#   DEPLOY_SSH_KEY  — private key with access to the server
+#   DEPLOY_PATH     — absolute path to the checked-out repo on the server
+#                     (e.g. /opt/mcps/my-data-mcp/repo)
+# Required repository variable:
+#   DEPLOY_TARGET   — ssh
+name: Deploy to server (SSH)
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ vars.DEPLOY_TARGET == 'ssh' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: cd ${{ secrets.DEPLOY_PATH }} && bash scripts/deploy.sh
