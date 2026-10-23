@@ -1,8 +1,8 @@
 """MCP Server — FastMCP entry point.
 
 Creates the MCP server instance, registers resources, core tools,
-auto-discovers tool modules from mcp_server/tools/, and registers
-skills from the top-level skills/ directory as MCP prompts.
+auto-discovers tool modules from the top-level tools/ directory, and
+registers skills from the top-level skills/ directory as MCP prompts.
 """
 
 import json
@@ -12,8 +12,8 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from mcp_server.db import test_connection
-from mcp_server.tools.discovery import discover_tools
 from mcp_server.prompts import discover_prompts
+from tools.discovery import discover_tools
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def metadata_manifest_resource() -> str:
     if manifest_path.exists():
         return manifest_path.read_text(encoding="utf-8")
     return json.dumps({
-        "error": "Manifest not found. Run: python -m mcp_server.metadata.manifest",
+        "error": "Manifest not found. Run: python scripts/generate_metadata_manifest.py",
     })
 
 

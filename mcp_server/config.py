@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Load .env from project root (parent of mcp_server/)
-_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+_env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
 
 

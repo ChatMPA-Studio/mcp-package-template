@@ -1,4 +1,9 @@
-"""SQL whitelist validation — restrict queries to approved tables only.
+"""SQL security — table whitelist and read-only limits for database-backed MCPs.
+
+Two parts (formerly ``security/sql_whitelist.py`` and ``security/read_only.py``):
+
+* Whitelist: restrict queries to approved tables only.
+* Read-only enforcement: inject LIMIT caps and timeout defaults.
 
 This module is database-agnostic.  It validates that:
   1. Queries are read-only (SELECT / SHOW / DESCRIBE only).
@@ -100,3 +105,44 @@ def _validate_table_references(normalized_sql: str) -> None:
                 f"Table '{table}' is not in the whitelist. "
                 f"Allowed: {', '.join(sorted(ALLOWED_TABLES))}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Read-only enforcement — LIMIT caps and timeout defaults
+# ---------------------------------------------------------------------------
+# Works for any SQL dialect that supports ``LIMIT n`` (MySQL, PostgreSQL,
+# SQLite).  For SQL Server or Oracle, override ``enforce_limit`` with the
+# appropriate ``TOP`` / ``FETCH FIRST`` syntax.
+
+DEFAULT_MAX_ROWS: int = 5000
+DEFAULT_TIMEOUT: int = 20  # seconds
+
+
+def enforce_limit(sql: str, max_rows: int = DEFAULT_MAX_ROWS) -> str:
+    """Inject or cap a LIMIT clause to prevent oversized result sets.
+
+    * If a LIMIT already exists and exceeds *max_rows*, it is replaced.
+    * If no LIMIT is present on a SELECT statement, one is appended.
+    * SHOW / DESCRIBE statements are returned unchanged.
+    """
+    normalized = sql.strip().upper()
+
+    # Check if LIMIT already exists
+    limit_match = re.search(r"\bLIMIT\s+(\d+)", normalized)
+    if limit_match:
+        existing = int(limit_match.group(1))
+        if existing > max_rows:
+            sql = re.sub(
+                r"\bLIMIT\s+\d+",
+                f"LIMIT {max_rows}",
+                sql,
+                flags=re.IGNORECASE,
+            )
+        return sql
+
+    # No LIMIT found — add one for SELECT statements only
+    if re.match(r"^\s*(SELECT)\b", normalized):
+        sql = sql.rstrip().rstrip(";")
+        sql = f"{sql} LIMIT {max_rows}"
+
+    return sql

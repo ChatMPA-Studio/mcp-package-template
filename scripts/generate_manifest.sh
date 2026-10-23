@@ -23,6 +23,6 @@ fi
 
 echo -e "${GREEN}[MANIFEST]${NC} Generating manifest..."
 
-python -m mcp_server.metadata.manifest "$@"
+python scripts/generate_metadata_manifest.py "$@"
 
 echo -e "${GREEN}[MANIFEST]${NC} Done."
