@@ -99,7 +99,7 @@ Validate your metadata against the JSON schemas:
 ```python
 import json, jsonschema
 
-schema = json.load(open("mcp_server/metadata/schema/package.schema.json"))
+schema = json.load(open("metadata/schema/package.schema.json"))
 template = json.load(open("metadata/template.json"))
 jsonschema.validate(template["package"], schema)
 print("Package metadata is valid!")

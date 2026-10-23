@@ -46,8 +46,8 @@ git fetch template
 git merge template/main --no-commit --allow-unrelated-histories
 
 # Resolve conflicts — keep your domain-specific changes
-git checkout --ours mcp_server/tools/    # keep your tools
-git checkout --theirs mcp_server/config/ # take template config updates
+git checkout --ours tools/ skills/      # keep your tools and skills
+git checkout --theirs mcp_server/auth.py mcp_server/timing.py   # take shared infrastructure updates
 
 # Review and commit
 git diff --staged
@@ -67,12 +67,9 @@ git commit -m "Merge template updates"
 1. Edit `Dockerfile` — change `python:3.12-slim` to desired version.
 2. Rebuild: `docker compose up --build --no-cache -d`
 
-### Caddy
+### FastMCP
 
-```bash
-apt update && apt upgrade caddy
-systemctl reload caddy
-```
+FastMCP is pinned (`fastmcp==4.0.5`) because transport and auth behaviour change between versions. To upgrade, change the pin, run `pytest` (the transport and auth tests cover what changed in the past), then deploy.
 
 ## Version Tagging
 

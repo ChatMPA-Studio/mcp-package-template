@@ -6,7 +6,7 @@ All MCP communication uses JSON-RPC 2.0 over HTTP.  These examples use `curl` fo
 
 - **Local (no Docker):** `http://localhost:8000/mcp`
 - **Docker Compose:** `http://localhost:8001/mcp`
-- **Production:** `https://your-domain.com/my-mcp/mcp` (with Basic Auth)
+- **Production:** `https://<host>/<path>/mcp` (with a Bearer key if `AUTH_ENABLED`)
 
 ## Initialize Handshake
 
@@ -194,12 +194,17 @@ curl -s http://localhost:8000/mcp \
   }'
 ```
 
-## With Basic Auth (Production)
+## With an API key (Production)
+
+With `AUTH_ENABLED=true` every request needs a Bearer key that includes this
+server's scope. Read it from an environment variable rather than typing it into
+the command (commands end up in shell history):
 
 ```bash
-curl -s -u mcp_user:your-password \
-  https://your-domain.com/my-mcp/mcp \
+curl -s --compressed https://<host>/<path>/mcp \
+  -H "Authorization: Bearer $MCP_KEY" \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
@@ -208,21 +213,17 @@ curl -s -u mcp_user:your-password \
   }'
 ```
 
-## SSE Transport
+## Response Format
 
-For streaming responses, set the Accept header:
+The server answers with plain JSON (`json_response=True`), not an SSE stream,
+compressed with gzip when the client sends `Accept-Encoding: gzip` (`--compressed`
+in curl). Clients must still send `Accept: application/json, text/event-stream`
+(the MCP spec requires accepting both). Every tool returns its result as a JSON
+string in `result.content[0].text`:
 
-```bash
-curl -N http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": {
-      "name": "echo",
-      "arguments": {"message": "streaming test"}
-    }
-  }'
+```json
+{"data": [ ], "meta": {"returned": 100, "truncated": true, "next_offset": 100}}
 ```
+
+With the API source (option B), `meta` also says where and when the data was
+retrieved: `source`, `retrieved_at`, `query`.

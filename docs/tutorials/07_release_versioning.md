@@ -76,21 +76,26 @@ git push origin v1.2.0
 
 ### 3. Deploy
 
+Promote `main` to `release`; the push starts the deployment to Amazon ECS
+([Tutorial 06](06_deploy_to_ecs.md), [deployment_workflow.md](../deployment_workflow.md)):
+
 ```bash
-ssh root@your-server
-cd /opt/mcps/my-mcp/repo
-git pull origin main
-docker compose down
-docker compose up --build -d
-bash scripts/smoke_test.sh http://localhost:8001/mcp
+git switch release && git pull --ff-only
+git merge --ff-only main
+git push origin release
 ```
 
 ### 4. Verify
 
 ```bash
-# Check the version via metadata resource
-curl -u user:pass https://your-domain.com/weather/mcp \
+# Smoke test (the key from an environment variable)
+MCP_SMOKE_KEY=<key> bash scripts/smoke_test.sh https://<host>/<path>/mcp
+
+# Check the version via the metadata resource
+curl -s --compressed https://<host>/<path>/mcp \
+  -H "Authorization: Bearer $MCP_SMOKE_KEY" \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"mcp://metadata/package"}}' \
   | python -m json.tool | grep version
 ```
@@ -133,5 +138,5 @@ Maintain a `CHANGELOG.md` (optional but recommended):
 ### Initial Release
 - Core tools: echo, server_time, calculator
 - Statistics tools: descriptive_stats, percentile, correlation
-- Docker deployment with Caddy reverse proxy
+- Docker image deployed to Amazon ECS (push to `release`)
 ```

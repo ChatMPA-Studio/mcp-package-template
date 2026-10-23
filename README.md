@@ -1,26 +1,42 @@
 # MCP Package Template
 
-A production-ready template for building [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) servers that expose databases, APIs, or any data source to AI assistants.
+A production-ready template for building [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) servers that expose a **project database** or an **external API** to AI assistants and platforms.
 
-**Version:** 1.1.0
-**Runtime:** Python 3.10+, [FastMCP 2.x](https://github.com/jlowin/fastmcp)
-**Transport:** HTTP/SSE (Docker) or stdio (local development)
+**Runtime:** Python 3.10+, [FastMCP](https://github.com/jlowin/fastmcp) 4.0.5, uvicorn
+**Transport:** streamable HTTP (stateless, JSON responses, gzip) or stdio (local development)
+**Structure:** the same as the MCP servers in production built from it (`ltem-db-mcp`, `conapesca-db-mcp`, `erddap-db-mcp`)
+
+## One template, two data sources
+
+Everything is shared except the layer that reaches the data. You pick one data source with `MCP_DATA_SOURCE` and delete the other's files:
+
+| | Option A — `db` (project database) | Option B — `api` (external API) |
+|---|---|---|
+| Files | `mcp_server/db.py`, `security.py`, `schema.py` | `mcp_server/api_client.py`, `params.py`, `cache.py` |
+| How tools get data | Validated, parameterised SQL (`execute_select`) | HTTP through one client (`get_json`, `fetch_pages`) |
+| What is validated | Read-only SQL, whitelisted tables, automatic LIMIT | Every parameter before the request (values, ranges, size) |
+| Limits | Row cap per query | Row cap + the API's own limits: rate, pages, timeouts |
+| Extra | Connection pool, schema tools | Retries, pagination, optional cache, provenance in every response |
+| Came from | `ltem-db-mcp` | `erddap-db-mcp` (minus the satellite-specific parts) |
+
+Shared by both: FastMCP server with tool and skill auto-discovery, optional API-key auth, per-call timing logs, metadata schemas, Docker image, and a parameterised deployment to Amazon ECS.
 
 ## What This Template Provides
 
 | Component | Description |
 |-----------|-------------|
-| **FastMCP server** | Entry point with SSE transport, tool/skill auto-discovery |
-| **Tool auto-discovery** | Drop a Python module in `mcp_server/tools/`, it registers automatically |
-| **Skill system** | Markdown-driven guided workflows in top-level `skills/`, auto-registered as MCP prompts, each with a JSON Schema input contract |
-| **Config module** | `.env`-based config with `DATABASE_URL` or component vars |
-| **Security layer** | SQL whitelist + read-only enforcement (optional, for DB-backed MCPs) |
-| **Metadata schemas** | DCAT-inspired JSON schemas for package, dataset, provenance, tools |
-| **Docker packaging** | Multi-stage Dockerfile + docker-compose with health checks |
-| **Reverse proxy** | Caddyfile snippet for subpath routing with Basic Auth |
-| **Claude Code plugin** | `.claude-plugin/` bundles the MCP connection + a `SessionStart` hook that auto-syncs skills locally every session |
-| **Scripts** | Dev runner, smoke tests, manifest generator, CRLF validator, skill installer, deploy workflow |
-| **Documentation** | Architecture docs, tutorials, deployment guide |
+| **FastMCP server** | `mcp_server/server.py`: auto-discovers tools in `tools/` and skills in `skills/`; tools never return their payload twice |
+| **Data sources** | `MCP_DATA_SOURCE=db` or `api`, behind `mcp_server/source.py` (`health`, `warmup`) |
+| **Configuration** | `mcp_server/config.py`: everything from environment variables; `check_required()` stops startup with a clear message if something is missing |
+| **Auth (optional)** | `mcp_server/auth.py`: `Authorization: Bearer <key>` validated against a DynamoDB table of key hashes, one scope per server |
+| **Timing** | `mcp_server/timing.py`: one log line per tool call (total time, time in the data source, rows, bytes) |
+| **Skill prompts** | `skills/<name>/SKILL.md` registered as MCP prompts (guided workflows) |
+| **Metadata schemas** | DCAT-inspired JSON schemas for package, dataset, provenance and tools (`metadata/`) |
+| **Docker packaging** | Multi-stage Dockerfile + docker-compose with health checks, non-root user |
+| **Deployment** | `.github/workflows/deploy-ecs.yml` (default): push to `release` → image in ECR → ECS service; all identifiers from repository variables. Alternative for a single server: `deploy-ssh.yml` + `scripts/deploy.sh` behind Caddy |
+| **Local stdio** | `run_stdio.py`: the same server over stdio for Claude Desktop / Claude Code, no HTTP |
+| **Plugin distribution** | `.claude-plugin/` + `.mcp.json` + `scripts/install_skills.sh`: ship the server's skills to researchers as a Claude Code plugin |
+| **Tests** | `tests/`: run without a database, an API, network or AWS |
 
 ## Quick Start
 
@@ -29,40 +45,41 @@ A production-ready template for building [Model Context Protocol](https://modelc
 cp -r mcp-package-template/ my-new-mcp/
 cd my-new-mcp/
 
-# 2. Configure
+# 2. Configure (choose MCP_DATA_SOURCE=db or api and fill in its section)
 cp .env.example .env
-# Edit .env — fill in your database credentials
 
 # 3. Install
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# 4. Run locally
-python -m mcp_server
+# 4. Test (no database or API needed)
+pytest
 
-# 5. Test
-bash scripts/smoke_test.sh
+# 5. Run locally
+python -m mcp_server
 
 # 6. Docker
 docker compose up --build -d
 ```
 
+Then follow **[TEMPLATE.md](TEMPLATE.md)**: what to change, what to delete, and the checklist before the first deployment.
+
 ## Architecture
 
 ```
-Client (Claude, ChatGPT, etc.)
-    |  JSON-RPC 2.0 over HTTP
+Client (Claude, an orchestrator, …)
+    |  JSON-RPC 2.0 over HTTP   (Authorization: Bearer <key> if AUTH_ENABLED)
     v
-[Caddy Reverse Proxy]  <-- Basic Auth + TLS
-    |  http://127.0.0.1:HOST_PORT
+[Load balancer]                 e.g. AWS ALB; TLS terminates here
     v
-[Docker Container]
-    |  FastMCP HTTP/SSE on PORT
+[Container]  python -m mcp_server  (uvicorn, stateless HTTP, gzip)
+    |
+[MCP Server]  auth -> timing -> tool
+    |                     |
+    |        source = db: validated SQL -> [Database, read-only user]
+    |        source = api: one HTTP client -> [External API]
     v
-[MCP Server]
-    |  SQL validation -> parameterised queries
-    v
-[Database]  <-- read-only user
+JSON: {"data": [...], "meta": {...}}
 ```
 
 ## Project Structure
@@ -70,78 +87,48 @@ Client (Claude, ChatGPT, etc.)
 ```
 my-new-mcp/
 |-- mcp_server/
-|   |-- server.py           # FastMCP entry point
-|   |-- __main__.py          # HTTP runner
-|   |-- db.py                # Database connection layer
-|   |-- prompts.py           # Skill auto-discovery + MCP prompt registration (reads top-level skills/)
-|   |-- config/
-|   |   |-- settings.py      # Environment variable loading
-|   |-- security/
-|   |   |-- sql_whitelist.py # Table whitelist validation
-|   |   |-- read_only.py     # LIMIT enforcement
-|   |-- tools/
-|   |   |-- discovery.py     # Auto-discovery engine
-|   |   |-- example_tools.py # Example: echo, server_time, calculator
-|   |   |-- statistics_tools.py  # Example: descriptive_stats, correlation
-|   |-- metadata/
-|   |   |-- manifest.py      # Manifest generator
-|   |   |-- schema/          # JSON schemas (package, dataset, provenance, tool)
-|   |-- resources/
-|       |-- README.md        # Resource documentation
-|-- skills/                  # Skill definitions (top-level, not under mcp_server/)
-|   |-- README.md
-|   |-- registry.py          # Programmatic skill listing (dev reference only)
-|   |-- contracts/           # JSON Schema input contract per skill
-|   |-- <skill-name>/
-|       |-- SKILL.md         # YAML frontmatter + guided workflow body
-|-- .mcp.json                # MCP server connection (HTTP endpoint + auth env var)
-|-- .claude-plugin/          # Claude Code plugin: SessionStart hook + marketplace manifest
-|   |-- plugin.json          # Plugin metadata + SessionStart hook (no credentials)
-|   |-- marketplace.json     # Self-hosted marketplace so 'claude plugin marketplace add' works
-|   |-- scripts/
-|       |-- sync_skills.sh   # Hook target — pulls skills/ into ~/.claude/skills/ every session
-|-- metadata/
-|   |-- template.json        # Base metadata (edit for your project)
-|-- scripts/
-|   |-- dev_run.sh           # Local development runner
-|   |-- smoke_test.sh        # Curl-based integration tests
-|   |-- generate_manifest.sh # Manifest generation
-|   |-- validate_line_endings.sh  # CRLF detection
-|   |-- install_skills.sh    # Manual one-shot skill install (curl + python3, no gh CLI)
-|   |-- deploy.sh            # Backup -> pull -> rebuild -> health-check deploy workflow
-|-- docs/                    # Architecture and tutorial documentation
-|-- Dockerfile               # Multi-stage production build
-|-- docker-compose.yml       # Container orchestration
-|-- Caddyfile.snippet        # Reverse proxy configuration
-|-- pyproject.toml           # Python packaging
-|-- .env.example             # Environment variable template
+|   |-- server.py          # FastMCP entry point: resources, core tools, discovery
+|   |-- __main__.py        # HTTP runner (uvicorn): python -m mcp_server
+|   |-- config.py          # Environment variables + check_required()
+|   |-- source.py          # The active data source: health(), warmup()
+|   |-- auth.py            # Optional API-key auth (Bearer, DynamoDB)
+|   |-- timing.py          # Per-call timing log
+|   |-- prompts.py         # Registers skills/ as MCP prompts
+|   |-- db.py              # Option A: pooled connections, execute_select
+|   |-- security.py        # Option A: SQL whitelist + LIMIT
+|   |-- schema.py          # Option A: schema discovery
+|   |-- api_client.py      # Option B: the only door to the API
+|   |-- params.py          # Option B: parameter validation
+|   |-- cache.py           # Option B: optional response cache
+|-- tools/                 # YOUR TOOLS — any module with register(mcp)
+|   |-- example_tools.py   # Examples without data (echo, server_time, …)
+|   |-- statistics_tools.py
+|   |-- api_example.py     # Option B example (search_records)
+|-- skills/                # Guided workflows: <name>/SKILL.md; contracts/ (input schemas); registry.py
+|-- metadata/              # template.json + JSON schemas
+|-- resources/             # Static reference documents
+|-- tests/                 # Run with pytest; no external services
+|-- scripts/               # Dev runner, smoke tests, manifest generator
+|-- docs/                  # Specification and tutorials
+|-- .github/workflows/     # deploy-ecs.yml (default), deploy-ssh.yml (single server)
+|-- .claude-plugin/        # Claude Code plugin manifest + marketplace
+|-- Dockerfile · docker-compose.yml · healthcheck.py · Caddyfile.snippet
+|-- run_stdio.py · .mcp.json
+|-- pyproject.toml · .env.example · .gitignore · .dockerignore
+|-- TEMPLATE.md            # How to create a new MCP from this template
+|-- CHANGELOG.md
 ```
-
-## Customisation Checklist
-
-When creating a new MCP from this template:
-
-1. **`pyproject.toml`** — Change `name`, `version`, `description`, add your dependencies
-2. **`mcp_server/server.py`** — Change `FastMCP("My MCP Server")` to your project name
-3. **`mcp_server/config/settings.py`** — Adjust env var prefix if needed (`MCP_DB_*`)
-4. **`mcp_server/security/sql_whitelist.py`** — Add your table names to `ALLOWED_TABLES`
-5. **`metadata/template.json`** — Fill in your package, dataset, and provenance metadata
-6. **`.env.example`** — Update with your database connection details
-7. **`docker-compose.yml`** — Set `COMPOSE_PROJECT_NAME` to your project name
-8. **`Caddyfile.snippet`** — Set your domain and subpath
-9. **`skills/`** — Replace the three example skills with your own domain workflows (see `docs/skills_architecture.md`)
-10. **`scripts/install_skills.sh`** — Set `GITHUB_ORG` / `GITHUB_REPO` / `GITHUB_REF`
-11. **`.mcp.json`** — Fill in `{{MCP_SERVER_URL}}`; set `{{ENV_AUTH_HEADER}}` to the env var name researchers will export (e.g. `MYPROJECT_AUTH_HEADER`). Never hardcode the token value — researchers set the env var in their shell profile.
-12. **`.claude-plugin/plugin.json`**, **`.claude-plugin/marketplace.json`**, and **`.claude-plugin/scripts/sync_skills.sh`** — Fill in the `{{placeholders}}` (see `docs/tutorials/08_package_as_plugin.md`)
 
 ## Documentation
 
+- **[TEMPLATE.md](TEMPLATE.md)** — Create a new MCP: choose the data source, what to change, checklist
+- [Template Specification](docs/mcp_template_spec.md) — Contracts and non-negotiable rules
 - [Quick Launch Guide](quick_launch.md) — One-page onboarding
-- [Deployment Guide](DEPLOYMENT.md) — Full deployment workflow
+- [Deployment Guide](DEPLOYMENT.md) — Local Docker, Amazon ECS (default) and a single server over SSH
+- [Tutorials](docs/tutorials/) — Step-by-step guides (tools, skills, metadata, Docker, ECS or Caddy, releases, plugin, API source)
 - [API Examples](docs/api_examples.md) — curl JSON-RPC examples
-- [Skills Architecture](docs/skills_architecture.md) — how skills are authored and discovered
-- [Tutorials](docs/tutorials/) — Step-by-step guides, including [packaging as a Claude Code plugin](docs/tutorials/08_package_as_plugin.md)
 - [Troubleshooting](docs/troubleshooting.md) — Common pitfalls and fixes
+- [CHANGELOG](CHANGELOG.md) — What changed in each version
 
 ## License
 

@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.3.0] — 2026-10-23
+
+Brings the template in line with the MCP servers deployed today
+(ltem-db-mcp and erddap-db-mcp, `release` branches) and adds a second data
+source: an external API.
+
+### Added
+
+- **Two data sources, one template**: `MCP_DATA_SOURCE=db` (project database,
+  from ltem-db-mcp) or `api` (external API, from erddap-db-mcp without the
+  satellite-specific parts), behind `mcp_server/source.py` (`health`, `warmup`).
+  Option B: `mcp_server/api_client.py` (retries on network errors, 429 and 5xx;
+  `Retry-After`; pacing; `fetch_pages` with `truncated`/`next_offset`;
+  provenance in every response), `params.py`, `cache.py` (off by default),
+  `tools/api_example.py`, Tutorial 09.
+- Optional **API-key auth** (`mcp_server/auth.py`): `Authorization: Bearer`,
+  SHA-256 hashes in a DynamoDB table, one scope per server; off by default.
+- **Per-call timing** log (`mcp_server/timing.py`).
+- `config.check_required()`: startup stops with a clear message when a
+  required variable is missing.
+- `.github/workflows/deploy-ecs.yml`: push to `release` → ECR → ECS, every
+  identifier from repository variables; skipped while `AWS_ROLE_ARN` is unset.
+- `TEMPLATE.md`: how to create a new MCP, which files to delete per source,
+  checklist before the first deployment. Tutorial 06 "Deploy to Amazon ECS".
+
+### Changed
+
+- **Structure**: `tools/` and `skills/` at the repository root, single-file
+  `mcp_server/config.py` and `security.py` — the layout of the production MCPs
+  (this reverses the 1.2.0 decision to keep `mcp_server/tools/`).
+- `pyproject.toml`: pin `fastmcp==4.0.5` (what ltem-db-mcp runs in production;
+  1.2.0 pinned `<3.0.0`). Stateless HTTP with JSON responses, gzip, keep-alive
+  65 s; tools default to `output_schema=None` so payloads are not sent twice.
+- `ALLOWED_TABLES` is now an empty `set()` (it was a dict literal): with no
+  tables listed, queries are **blocked** until you whitelist them.
+- Deployment: ECS is the default. The SSH workflow is now
+  `.github/workflows/deploy-ssh.yml` and runs only when the repository variable
+  `DEPLOY_TARGET=ssh`; Caddy (Tutorial 06 "Caddy subpath") is the documented
+  single-server alternative.
+- `scripts/smoke_test.sh` checks `tools/list` and `health_check` (works with
+  any tools) and takes the key from `MCP_SMOKE_KEY`.
+- Tests are source-aware (markers `db` / `api`) and run without a database,
+  an API, network or AWS.
+
+### Fixed
+
+- Dockerfile: the runtime image now copies `skills/` (prompts were missing
+  in the container).
+
 ## [1.2.0] — 2026-09-03
 
 Syncs configuration + deployment fixes that converged across the production

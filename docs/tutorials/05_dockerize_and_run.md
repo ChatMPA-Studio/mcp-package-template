@@ -93,9 +93,8 @@ Edit `pyproject.toml`:
 
 ```toml
 dependencies = [
-    "fastmcp>=2.0.0",
-    "pymysql>=1.1.0",
-    "python-dotenv>=1.0.0",
+    "fastmcp==4.0.5",       # pinned: transport and auth change between versions
+    # ... the template's other dependencies ...
     "pandas>=2.0.0",        # add your deps
 ]
 ```
@@ -111,4 +110,4 @@ If the container crashes with `ModuleNotFoundError`:
 
 ## Next Steps
 
-- [Tutorial 06: Deploy with Caddy](06_deploy_with_caddy_subpath.md)
+- [Tutorial 06: Deploy to Amazon ECS](06_deploy_to_ecs.md)

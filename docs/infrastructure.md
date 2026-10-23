@@ -2,94 +2,82 @@
 
 ## Overview
 
-An MCP package is a self-contained Python application that exposes data and computation through the Model Context Protocol (MCP).  The architecture has five layers:
+```
+                 Client (Claude, a platform's orchestrator, …)
+                        |  HTTPS, JSON-RPC 2.0
+                        |  Authorization: Bearer <key>   (AUTH_ENABLED)
+                        v
+                 [Load balancer]  TLS, path routing to MCP_BASE_PATH
+                        v
+     [ECS service: N stateless replicas of the container]
+        python -m mcp_server  (uvicorn, JSON responses, gzip)
+                        |
+        auth (FastMCP TokenVerifier) ──> [Key table: SHA-256 hashes, read-only]
+                        |
+        timing middleware -> tool (tools/*.py)
+                        |
+              mcp_server/source.py
+           ┌────────────┴────────────┐
+   A: db.py + security.py     B: api_client.py + params.py (+ cache.py)
+           |                         |
+   [Database, read-only user]  [External API]
+```
 
-```
-+----------------------------------+
-|  AI Client (Claude, etc.)        |   JSON-RPC 2.0
-+----------------------------------+
-          |
-+----------------------------------+
-|  Reverse Proxy (Caddy)           |   TLS + Basic Auth
-+----------------------------------+
-          |
-+----------------------------------+
-|  Docker Container                |   Isolation, resource limits
-|    +----------------------------+|
-|    |  FastMCP HTTP/SSE Server   ||   Transport layer
-|    +----------------------------+|
-|    |  MCP Server (server.py)    ||   Tools, Skills, Resources
-|    +----------------------------+|
-|    |  Database Driver           ||   PyMySQL, psycopg2, sqlite3
-|    +----------------------------+|
-+----------------------------------+
-          |
-+----------------------------------+
-|  Database (MySQL, PostgreSQL)    |   Read-only access
-+----------------------------------+
-```
+Replicas share nothing: no session state (`stateless_http=True`), no shared cache unless you add one (see `mcp_server/cache.py`). Any replica can answer any request.
 
 ## Component Responsibilities
 
 ### FastMCP Server (`mcp_server/server.py`)
+- Creates `TemplateMCP` (tools without output schema: each result travels once).
+- Attaches auth (if `AUTH_ENABLED`) and `ToolTimingMiddleware`.
+- Registers metadata resources, `health_check`, and — with the db source — the schema tools.
+- Imports every module in `tools/` and calls its `register(mcp)`; registers `skills/` as prompts.
 
-The entry point.  Creates the `FastMCP` instance and:
-- Registers static resources (hello, metadata)
-- Registers core tools (health_check)
-- Calls `discover_tools()` to auto-load tool modules
-- Calls `discover_prompts()` to auto-load skills as MCP prompts
+### HTTP Runner (`mcp_server/__main__.py`)
+- `check_required()` before binding the port: a misconfigured container stops at once.
+- `source.warmup()` (opens the DB pool with A).
+- `build_app()`: stateless HTTP, JSON instead of SSE, gzip level 6; uvicorn keep-alive 65 s (longer than a typical load balancer idle timeout, avoiding sporadic 502s).
 
-### Config Module (`mcp_server/config/`)
+### Config (`mcp_server/config.py`)
+- Every setting from environment variables; nothing exits at import.
+- `missing_required()` / `check_required()` know what each source and auth need.
 
-Loads `.env` at import time.  Supports `DATABASE_URL` or individual `MCP_DB_*` variables.  Validates required vars and exits early with clear errors if missing.
+### Data Source (`mcp_server/source.py`)
+- The only module that knows `MCP_DATA_SOURCE`. `health()` and `warmup()`.
 
-### Security Module (`mcp_server/security/`)
+### Option A — Database (`db.py`, `security.py`, `schema.py`)
+- Connection pool (DBUtils) with liveness ping, autocommit reads, optional TLS.
+- Every query validated (read-only, whitelisted tables) and capped (LIMIT).
 
-Two independent guards:
-1. **SQL Whitelist** — Only allows SELECT/SHOW/DESCRIBE; blocks destructive keywords; validates table references against a whitelist.
-2. **Read-Only Enforcement** — Auto-injects or caps LIMIT clauses to prevent oversized result sets.
+### Option B — External API (`api_client.py`, `params.py`, `cache.py`)
+- One HTTP client: timeout, pacing, retries for network errors / 429 / 5xx, translated errors, key never exposed, pagination with truncation, provenance.
+- Parameters validated before any request.
+- Optional in-memory response cache.
 
-### Tool Discovery (`mcp_server/tools/discovery.py`)
+### Auth (`mcp_server/auth.py`)
+- Bearer key → SHA-256 → lookup in a DynamoDB table shared by the platform's servers (read-only, cached 60 s, misses cached too). The key must carry `AUTH_REQUIRED_SCOPE`.
 
-Uses `pkgutil.iter_modules()` to find all Python modules in `mcp_server/tools/`.  Each module with a `register(mcp)` function gets called at startup.
+### Timing (`mcp_server/timing.py`)
+- One log line per tool call; the data source adds its time with `record_source_call()`.
 
-### Skill Discovery (`mcp_server/prompts.py`)
+### Skill Loader (`mcp_server/prompts.py`)
+- Registers `skills/<name>/SKILL.md` (+ `references/*.md`) as MCP prompts.
 
-Scans the top-level `skills/<name>/SKILL.md` files for YAML frontmatter.  Each skill is registered as an MCP prompt, making it discoverable by remote clients. A `.claude-plugin/` bundled alongside the server can also sync these into a researcher's local Claude Code skills automatically — see `docs/tutorials/08_package_as_plugin.md`.
-
-### Database Layer (`mcp_server/db.py`)
-
-Wraps PyMySQL with security validation.  Every query passes through `validate_sql()` and `enforce_limit()` before execution.
+### stdio entry point (`run_stdio.py`)
+- The same server over stdio, for Claude Desktop / Claude Code on the researcher's machine. The plugin in `.claude-plugin/` (+ `.mcp.json`, `scripts/install_skills.sh`) distributes the skills.
 
 ## Network Architecture
 
-```
-Internet
-    |
-    v
-[Caddy :443]  -- TLS termination, Basic Auth
-    |
-    | http://127.0.0.1:HOST_PORT
-    v
-[Docker :PORT]  -- Container boundary
-    |
-    | TCP
-    v
-[Database :3306/5432]  -- Read-only user
-```
+- **Production:** the container listens on `PORT` inside a private network; only the load balancer reaches it. TLS terminates at the load balancer. Outbound: the database (A) or the external API (B), and the key table (auth).
+- **Local Docker:** `docker-compose.yml` binds the port to `127.0.0.1` only (`HOST_PORT`, default 8001).
+- **Single server (alternative):** Docker Compose behind Caddy, which terminates TLS and routes a path to the container (`Caddyfile.snippet`).
 
-- The container binds to `127.0.0.1` only — not exposed to the internet.
-- Caddy handles TLS certificates automatically.
-- Each MCP gets a unique `HOST_PORT` and Caddy route.
-
-## File System Layout
+## File System Layout (container)
 
 ```
-/opt/mcps/my-mcp/
-  repo/                    # Git repository
-    .env                   # Credentials (not in git)
-    docker-compose.yml     # Container config
-    mcp_server/            # Application code
-    metadata/              # manifest.json
-  backups/                 # Auto-created by deploy script
+/app/
+  mcp_server/   tools/   skills/   resources/   metadata/
+  healthcheck.py   pyproject.toml
 ```
+
+Runs as the non-root `mcp` user. Tests, docs, scripts and `.env*` are excluded from the image (`.dockerignore`).

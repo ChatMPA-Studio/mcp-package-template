@@ -1,88 +1,76 @@
 # Quick Launch Guide
 
-One-page onboarding for the MCP Package Template.
-
 ## What This Template Is
 
-A production-ready starter for building MCP (Model Context Protocol) servers.  Copy it, customise it, deploy it.  Your AI assistants connect via HTTP/SSE and call tools, read resources, and follow guided skill workflows.
+A ready-to-copy MCP server: FastMCP over stateless HTTP, optional API-key auth,
+per-call timing, Docker image and Amazon ECS deployment. It serves data from a
+**project database** (option A, `db`) or an **external API** (option B, `api`);
+a new MCP keeps one. Full guide: [TEMPLATE.md](TEMPLATE.md).
 
 ## Prerequisites
 
 - Python 3.10+
-- Docker and Docker Compose (for containerised deployment)
-- A database (MySQL, PostgreSQL, or SQLite) — optional if your tools don't need one
-- `curl` and `jq` (for smoke tests)
+- Docker (to build the image)
+- For a database source: a read-only user. For an API source: its documentation.
 
 ## Copy to a New MCP
 
 ```bash
-# Copy the template directory
-cp -r mcp-package-template/ my-new-mcp/
-cd my-new-mcp/
-
-# Initialise git
-git init && git add -A && git commit -m "Initial MCP from template"
+cp -r mcp-package-template/ my-source-mcp/
+cd my-source-mcp/
+rm -rf .git && git init
 
 # Update identity
-# 1. pyproject.toml     -> name, version, description
-# 2. server.py          -> FastMCP("Your MCP Name")
-# 3. metadata/template.json -> package, dataset, provenance
-# 4. .env.example       -> your database defaults
-# 5. docker-compose.yml -> COMPOSE_PROJECT_NAME
+# 1. pyproject.toml          -> name, version, description
+# 2. mcp_server/server.py    -> TemplateMCP("Your MCP Name", …)
+# 3. metadata/template.json  -> package, dataset (license, citation), provenance
+# 4. docker-compose.yml/.env -> COMPOSE_PROJECT_NAME
+
+# Keep one data source (TEMPLATE.md, step 2)
+#   A (db):  rm mcp_server/api_client.py mcp_server/params.py mcp_server/cache.py tools/api_example.py tests/test_api_client.py
+#   B (api): rm mcp_server/db.py mcp_server/security.py mcp_server/schema.py
+#   then remove the other source's branch in mcp_server/source.py and its section in config.py / .env.example
 ```
 
-## Run Locally with Docker Compose
-
-```bash
-# 1. Configure credentials
-cp .env.example .env
-# Edit .env — fill in MCP_DB_PASSWORD (or DATABASE_URL)
-
-# 2. Build and start
-docker compose up --build -d
-
-# 3. Check logs
-docker compose logs -f
-
-# 4. Verify
-curl -s http://localhost:8001/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-
-# 5. Stop
-docker compose down
-```
-
-## Run Locally without Docker
+## Run Locally
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env && $EDITOR .env
-python -m mcp_server
+pytest                          # no database, API or AWS needed
+
+cp .env.example .env            # MCP_DATA_SOURCE + its section; never commit .env
+python -m mcp_server            # stops with a clear message if .env is incomplete
+bash scripts/smoke_test.sh      # health_check must report "ok"
+```
+
+With Docker Compose instead:
+
+```bash
+docker compose up --build -d
+docker compose logs -f
+bash scripts/smoke_test.sh http://127.0.0.1:8001/mcp
+docker compose down
 ```
 
 ## Add a New Tool
 
-1. Create `mcp_server/tools/my_tools.py`:
+1. Create `tools/my_tools.py`:
 
 ```python
 import json
-from fastmcp import FastMCP
+from mcp_server.db import execute_select      # option A; option B: from mcp_server import api_client, params
 
-def register(mcp: FastMCP) -> None:
+def register(mcp) -> None:
     @mcp.tool()
-    def my_tool(param: str) -> str:
-        """Describe what this tool does.
-
-        Args:
-            param: Description of the parameter.
-        """
-        result = {"data": f"processed {param}"}
-        return json.dumps(result)
+    def my_tool(species: str, year_from: int | None = None) -> str:
+        """What it returns, at what level, units and columns."""
+        rows = execute_select("SELECT … FROM my_table WHERE species = %s", params=(species,))
+        return json.dumps({"data": rows, "meta": {"returned": len(rows)}}, default=str)
 ```
 
-2. Restart the server.  The tool is auto-discovered — no registration code needed.
+2. Restart the server: it is registered automatically.
+3. Rules: [docs/tutorials/02_add_tools.md](docs/tutorials/02_add_tools.md) (database), [09_api_data_source.md](docs/tutorials/09_api_data_source.md) (API).
 
 ## Add a New Skill
 
@@ -91,40 +79,40 @@ def register(mcp: FastMCP) -> None:
 ```markdown
 ---
 name: my-workflow
-description: A guided workflow that orchestrates multiple tools.
-version: 1.0.0
+description: One line saying when to use this workflow.
 ---
 
 # My Workflow
 
 ## Step 1: Do Something
-**Tool:** `my_tool`
-**Parameters:** `{"param": "value"}`
+Call `my_tool` with …
 
 ## Step 2: Analyse Results
-**Tool:** `descriptive_stats`
-**Parameters:** `{"values": [<results from step 1>]}`
+…
 ```
 
-2. Restart the server.  The skill appears as an MCP prompt.
+2. Restart the server: it is registered as an MCP prompt.
 
 ## Generate Metadata Manifest
 
 ```bash
-bash scripts/generate_manifest.sh
-# Output: metadata/manifest.json
+python scripts/generate_metadata_manifest.py
+# Output: metadata/manifest.json (git-ignored; generated)
 ```
 
-## Deploy Behind Caddy at /\<mcp-name\>/
+## Deploy to Amazon ECS
 
-1. Copy `Caddyfile.snippet` into your Caddy config.
-2. Replace `example.com` with your domain.
-3. Replace `/example/` with `/<your-mcp-name>/`.
-4. Generate a password hash: `caddy hash-password --plaintext 'your-pass'`
-5. Update the `basicauth` block.
-6. Reload: `systemctl reload caddy`
+1. Agree with the platform's operators on the infrastructure (ECR, cluster, service, load balancer route, IAM role) and the auth scope.
+2. Set the repository variables `AWS_REGION`, `AWS_ROLE_ARN`, `ECR_REPOSITORY`, `ECS_CLUSTER`, `ECS_SERVICE`.
+3. `git push origin release`.
 
-Your MCP is now at `https://example.com/<your-mcp-name>/mcp`
+Step by step: [docs/tutorials/06_deploy_to_ecs.md](docs/tutorials/06_deploy_to_ecs.md).
+
+Single server instead of ECS: `DEPLOY_TARGET=ssh` + `deploy-ssh.yml` ([DEPLOYMENT.md](DEPLOYMENT.md)).
+
+## Use It Locally from Claude (stdio)
+
+`python run_stdio.py` runs the same server over stdio (reads `.env`). To ship the skills to researchers as a Claude Code plugin: [docs/tutorials/08_package_as_plugin.md](docs/tutorials/08_package_as_plugin.md).
 
 ## Run Smoke Tests
 
@@ -133,8 +121,8 @@ Your MCP is now at `https://example.com/<your-mcp-name>/mcp`
 bash scripts/smoke_test.sh
 
 # Against Docker container
-bash scripts/smoke_test.sh http://localhost:8001/mcp
+bash scripts/smoke_test.sh http://127.0.0.1:8001/mcp
 
-# Against production (with auth)
-bash scripts/smoke_test.sh https://user:pass@example.com/my-mcp/mcp
+# Against production (with auth): the key from an environment variable
+MCP_SMOKE_KEY=<key> bash scripts/smoke_test.sh https://<host>/<path>/mcp
 ```

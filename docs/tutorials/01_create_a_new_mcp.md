@@ -2,107 +2,108 @@
 
 ## Goal
 
-Copy the template, customise identity, and get a running MCP server.
+Copy the template, give it your identity, keep one data source, and see it
+answer locally. The full reference is [TEMPLATE.md](../../TEMPLATE.md); this
+tutorial walks through it with an example: a weather database (option A). For
+an API, make the choices of option B in steps 3–4 and continue with
+[Tutorial 09](09_api_data_source.md).
 
 ## Steps
 
-### 1. Copy the Template
+### 1. Copy the template
 
 ```bash
-cp -r mcp-package-template/ my-weather-mcp/
-cd my-weather-mcp/
-git init
+cp -r mcp-package-template/ weather-mcp/
+cd weather-mcp/
+rm -rf .git && git init
 ```
 
-### 2. Update Package Identity
+### 2. Update the identity
 
-Edit `pyproject.toml`:
+| File | Change |
+|---|---|
+| `pyproject.toml` | `name = "weather-mcp"`, `version = "0.1.0"`, `description` |
+| `mcp_server/server.py` | `TemplateMCP("My MCP Server", …)` → `TemplateMCP("Weather Observations", …)` |
+| `metadata/template.json` | package, dataset (coverage, license, citation), provenance |
+| `docker-compose.yml` / `.env` | `COMPOSE_PROJECT_NAME=weather-mcp` |
 
-```toml
-[project]
-name = "my-weather-mcp"
-version = "1.0.0"
-description = "MCP server for weather observation data"
+### 3. Keep one data source
+
+Option A (database): delete the API files and their traces.
+
+```bash
+rm mcp_server/api_client.py mcp_server/params.py mcp_server/cache.py
+rm tools/api_example.py tests/test_api_client.py
 ```
 
-### 3. Update Server Name
+Then, as in [TEMPLATE.md](../../TEMPLATE.md) step 2: remove the `api` branch from `mcp_server/source.py`, the API section and checks from `mcp_server/config.py` and `.env.example`.
 
-Edit `mcp_server/server.py`, line 25:
-
-```python
-mcp = FastMCP("Weather Data Server")
+```bash
+pytest          # must still pass
 ```
 
-### 4. Configure Database Connection
+### 4. Configure the connection
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
-```env
-MCP_DB_HOST=your-database-host.com
+```bash
+MCP_DATA_SOURCE=db
+MCP_DB_HOST=<your-database-host>
 MCP_DB_PORT=3306
-MCP_DB_USER=weather_readonly
-MCP_DB_PASSWORD=your-secure-password
-MCP_DB_NAME=weather_observations
+MCP_DB_USER=<read-only user>
+MCP_DB_PASSWORD=<password>
+MCP_DB_NAME=<database>
 ```
 
-### 5. Add Your Tables to the Whitelist
+`.env` is git-ignored: never commit it. Use a user that can only `SELECT`.
 
-Edit `mcp_server/security/sql_whitelist.py`:
+### 5. Whitelist your tables
+
+`mcp_server/security.py`:
 
 ```python
-ALLOWED_TABLES: set[str] = {
-    "weather_stations",
-    "daily_observations",
-    "monthly_summaries",
-}
+ALLOWED_TABLES: set[str] = {"weather_stations", "daily_observations"}
 ```
 
-### 6. Update Metadata
-
-Edit `metadata/template.json` — fill in your package, dataset, and provenance sections.
-
-### 7. Install and Run
+### 6. Install and run
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-# .venv\Scripts\activate     # Windows
-
+source .venv/bin/activate      # .venv\Scripts\activate on Windows
 pip install -e ".[dev]"
 python -m mcp_server
 ```
 
-### 8. Verify
+If something is missing in `.env`, the server stops and lists it.
+
+### 7. Verify
 
 ```bash
-curl -s http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+bash scripts/smoke_test.sh
 ```
 
-You should see a JSON-RPC response with `"result"` containing server capabilities.
+`health_check` must answer `"status": "ok"` with the database version, name and user. `list_tables`, `describe_table` and `schema_snapshot` show what the server can read.
 
-### 9. Commit
+### 8. Commit
 
 ```bash
 git add -A
-git commit -m "Initial MCP from template: weather observation data"
+git status        # .env must NOT appear
+git commit -m "Initial weather MCP from template"
 ```
 
 ## What You Changed
 
 | File | Change |
-|------|--------|
-| `pyproject.toml` | Package name, version, description |
-| `mcp_server/server.py` | FastMCP server name |
-| `.env` | Database credentials |
-| `mcp_server/security/sql_whitelist.py` | Allowed table names |
-| `metadata/template.json` | Project metadata |
+|---|---|
+| `pyproject.toml`, `metadata/template.json` | Identity and metadata |
+| `mcp_server/server.py` | Server name |
+| `mcp_server/source.py`, `config.py`, `.env.example` | Only the database source remains |
+| `mcp_server/security.py` | Allowed tables |
+| `.env` (not committed) | Connection |
 
 ## Next Steps
 
 - [Tutorial 02: Add Tools](02_add_tools.md)
-- [Tutorial 03: Add Skills](03_add_skills.md)

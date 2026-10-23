@@ -106,26 +106,17 @@ print(socket.gethostbyname('your-db-host'))
 - Wrong port number
 - Database user not granted access from container IP
 
-### 6. Caddy Returns 502 Bad Gateway
+### 6. 502 Bad Gateway or 401 Unauthorized in Production
 
-**Symptom:** Browser or curl shows `502 Bad Gateway`.
+**502 Bad Gateway** — the load balancer could not get an answer from a task.
 
-**Diagnosis:**
-```bash
-# Is the container running?
-docker ps | grep my-mcp
+- Tasks keep stopping: the log shows `FATAL: configuration incomplete` and which variable is missing.
+- Sporadic 502s: the load balancer reuses a connection uvicorn already closed. The template keeps connections open 65 s; the balancer's idle timeout must be shorter.
+- Wrong port or path: the target group must point at the container's `PORT` and `MCP_BASE_PATH`.
 
-# Can you reach it locally?
-curl http://localhost:8001/mcp
+**401 Unauthorized** — with `AUTH_ENABLED=true` every request needs `Authorization: Bearer <key>`. The log line `auth_rejected` says why: `key_not_found`, `key_revoked` or `missing_scope` (the key does not include this server's `AUTH_REQUIRED_SCOPE`).
 
-# Check Caddy logs
-journalctl -u caddy --tail=20
-```
-
-**Common causes:**
-- Container not running
-- `HOST_PORT` in `.env` doesn't match Caddy's `reverse_proxy` port
-- Container bound to wrong interface
+To rule out the load balancer, call the container directly (locally, `http://localhost:8001/mcp`) with `bash scripts/smoke_test.sh`.
 
 ### 7. Tools Not Auto-Discovered
 

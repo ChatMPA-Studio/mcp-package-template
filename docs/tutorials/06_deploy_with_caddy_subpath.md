@@ -1,5 +1,12 @@
 # Tutorial 06: Deploy with Caddy Subpath Routing
 
+> **Alternative deployment** — a single server running Docker Compose behind Caddy,
+> deployed over SSH by `.github/workflows/deploy-ssh.yml` (set the repository
+> variable `DEPLOY_TARGET=ssh`). The default is Amazon ECS:
+> [Tutorial 06: Deploy to Amazon ECS](06_deploy_to_ecs.md). With `AUTH_ENABLED=true`
+> the server checks per-investigator keys itself; Caddy's Basic Auth becomes an
+> optional extra layer.
+
 ## Goal
 
 Deploy the MCP server behind Caddy with TLS, Basic Auth, and subpath routing.
