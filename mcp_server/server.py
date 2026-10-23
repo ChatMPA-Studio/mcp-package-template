@@ -115,13 +115,13 @@ def metadata_dataset_resource() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool(tags={"internal"})
-def health_check() -> str:
+async def health_check() -> str:
     """Check that the server's data source answers and return its info.
 
     Technical diagnostic tool. Reports the selected data source, and what is
     missing from its configuration if it is not set up.
     """
-    return json.dumps(source.health())
+    return json.dumps(await source.health())
 
 
 def _register_db_schema_tools() -> None:

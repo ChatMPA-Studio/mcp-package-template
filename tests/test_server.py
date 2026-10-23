@@ -52,7 +52,7 @@ def test_health_check_never_raises_on_connection_errors(monkeypatch):
         raise RuntimeError("cannot reach database")
 
     monkeypatch.setattr("mcp_server.db.test_connection", boom)
-    report = source.health()
+    report = asyncio.run(source.health())
     assert report == {"status": "error", "source": "db", "error": "cannot reach database"}
 
 

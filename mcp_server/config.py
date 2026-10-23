@@ -14,6 +14,12 @@ Data source
 * ``db``  — a project database (MySQL), via ``mcp_server/db.py`` and
   ``mcp_server/security.py``. Credentials: ``DATABASE_URL`` (takes precedence)
   or the individual ``MCP_DB_*`` variables.
+* ``api`` — an external HTTP API, via ``mcp_server/api_client.py`` and
+  ``mcp_server/params.py``. ``MCP_API_BASE_URL`` is required; ``MCP_API_KEY``
+  only if the API needs one.
+
+When creating a new MCP, keep one source and delete the other's files (see
+mcp_server/source.py).
 
 Never put real values in this file or in ``.env.example``: they go in a local
 ``.env`` (git-ignored) or in the deployment's environment.
@@ -47,7 +53,7 @@ LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 # Data source
 # ---------------------------------------------------------------------------
 
-DATA_SOURCES = ("db",)
+DATA_SOURCES = ("db", "api")
 MCP_DATA_SOURCE: str = os.getenv("MCP_DATA_SOURCE", "db").strip().lower()
 
 # ---------------------------------------------------------------------------
@@ -122,6 +128,42 @@ DB_POOL_MAX_CACHED: int = int(os.getenv("DB_POOL_MAX_CACHED", str(DB_POOL_MAX)))
 
 
 # ---------------------------------------------------------------------------
+# External API settings (MCP_DATA_SOURCE=api)
+# ---------------------------------------------------------------------------
+# Every request to the API goes through mcp_server/api_client.py, which applies
+# all of these. Nothing here is specific to one API.
+
+MCP_API_BASE_URL: str = os.getenv("MCP_API_BASE_URL", "").rstrip("/")
+# Optional key for APIs that require one. Sent in MCP_API_KEY_HEADER; with the
+# default "Authorization" header it is sent as "Bearer <key>". Never logged and
+# never included in responses.
+MCP_API_KEY: str = os.getenv("MCP_API_KEY", "")
+MCP_API_KEY_HEADER: str = os.getenv("MCP_API_KEY_HEADER", "Authorization")
+# For APIs that take the key in the query string instead (e.g. ?token=...):
+# set the parameter name here and the key goes there, not in a header. It is
+# masked in meta.query and in logs all the same.
+MCP_API_KEY_PARAM: str = os.getenv("MCP_API_KEY_PARAM", "")
+# Path that health_check requests (GET) to see whether the API answers; "" means
+# the base URL itself.
+MCP_API_HEALTH_PATH: str = os.getenv("MCP_API_HEALTH_PATH", "")
+MCP_API_TIMEOUT_SECONDS: float = float(os.getenv("MCP_API_TIMEOUT_SECONDS", "15"))
+# Retries for network errors, 429 and 5xx only (never for other 4xx), waiting
+# 1, 2, 4... seconds — short on purpose: a tool call is waiting. A Retry-After
+# header from the API is honored up to MCP_API_MAX_RETRY_AFTER_SECONDS.
+MCP_API_MAX_RETRIES: int = int(os.getenv("MCP_API_MAX_RETRIES", "3"))
+MCP_API_MAX_RETRY_AFTER_SECONDS: float = float(os.getenv("MCP_API_MAX_RETRY_AFTER_SECONDS", "30"))
+# Minimum seconds between two requests from this process (the API's rate
+# limit); 0 = no pacing.
+MCP_API_MIN_INTERVAL_SECONDS: float = float(os.getenv("MCP_API_MIN_INTERVAL_SECONDS", "0"))
+# Most rows a tool returns in one response (collecting pages). Beyond it the
+# response says so: meta.truncated=true and meta.next_offset.
+MCP_API_MAX_ROWS: int = int(os.getenv("MCP_API_MAX_ROWS", "5000"))
+# Cache of API responses, in memory, per process. 0 = off (default).
+MCP_CACHE_TTL_SECONDS: int = int(os.getenv("MCP_CACHE_TTL_SECONDS", "0"))
+MCP_CACHE_MAX_ENTRIES: int = int(os.getenv("MCP_CACHE_MAX_ENTRIES", "256"))
+
+
+# ---------------------------------------------------------------------------
 # Auth settings (API key per investigator, validated against DynamoDB)
 # ---------------------------------------------------------------------------
 # Off by default: the key table is provisioned separately (infrastructure
@@ -160,6 +202,11 @@ def missing_required() -> list[str]:
                                 ("MCP_DB_PASSWORD", DB_PASSWORD), ("MCP_DB_NAME", DB_NAME)):
                 if not value:
                     problems.append(f"{name} is not set (or set DATABASE_URL)")
+    if MCP_DATA_SOURCE == "api":
+        if not MCP_API_BASE_URL:
+            problems.append("MCP_API_BASE_URL is not set")
+        elif not MCP_API_BASE_URL.startswith(("https://", "http://")):
+            problems.append("MCP_API_BASE_URL must start with https:// (or http:// for local testing)")
     if AUTH_ENABLED:
         for name, value in (("AUTH_DYNAMODB_TABLE", AUTH_DYNAMODB_TABLE),
                             ("AUTH_AWS_REGION", AUTH_AWS_REGION),
@@ -212,6 +259,14 @@ def print_startup_summary() -> None:
         logger.info("  DB Pool:     min=%s max_cached=%s max=%s",
                     DB_POOL_MIN, DB_POOL_MAX_CACHED, DB_POOL_MAX)
         logger.info("  DB Config:   %s", "DATABASE_URL" if DATABASE_URL else "MCP_DB_* env vars")
+    if MCP_DATA_SOURCE == "api":
+        logger.info("  API URL:     %s", MCP_API_BASE_URL or "NOT SET")
+        logger.info("  API Key:     %s", f"**** (header {MCP_API_KEY_HEADER})" if MCP_API_KEY else "none")
+        logger.info("  API Limits:  timeout=%ss retries=%s min_interval=%ss max_rows=%s",
+                    MCP_API_TIMEOUT_SECONDS, MCP_API_MAX_RETRIES,
+                    MCP_API_MIN_INTERVAL_SECONDS, MCP_API_MAX_ROWS)
+        logger.info("  Cache:       %s",
+                    f"in memory, ttl={MCP_CACHE_TTL_SECONDS}s" if MCP_CACHE_TTL_SECONDS > 0 else "off")
     logger.info(
         "  Auth:        %s",
         f"enabled (table={AUTH_DYNAMODB_TABLE}, region={AUTH_AWS_REGION}, scope={AUTH_REQUIRED_SCOPE})"
